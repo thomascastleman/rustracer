@@ -71,6 +71,7 @@ enum Transformation {
     Rotate(glm::Vector3<f32>, f32),
 }
 
+#[derive(Default)]
 struct Node {
     transformations: Vec<Transformation>,
     primitives: Vec<Primitive>,

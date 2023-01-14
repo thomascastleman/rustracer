@@ -1,7 +1,8 @@
-use super::GlobalLightingCoefficients;
+use super::{GlobalLightingCoefficients, Node};
 use crate::scene::{Camera, Light, Scene};
 use anyhow::Result;
 use anyhow::{anyhow, bail};
+use std::collections::HashMap;
 use std::fs::File;
 use std::str::FromStr;
 use xmltree::Element;
@@ -214,6 +215,28 @@ fn parse_light(element: &Element) -> Result<Light> {
     }
 }
 
+fn parse_object(
+    element: &Element,
+    nodes: &mut Vec<Node>,
+    objects: &mut HashMap<String, Node>,
+) -> Result<()> {
+    let object_name = parse_attribute::<String>(element, "name")?;
+    let object_type = parse_attribute::<String>(element, "type")?;
+
+    if object_type.as_str() != "tree" {
+        bail!(
+            "Top-level <object> elements must be of type \"tree\", not \"{}\"",
+            object_type
+        )
+    }
+
+    let mut current_node: Node = Default::default();
+    nodes.push(current_node);
+    objects.insert(object_name, current_node);
+
+    Ok(())
+}
+
 impl Scene {
     pub fn parse(filename: &str) -> Result<Self> {
         let root = Element::parse(File::open(filename)?)?;
@@ -226,6 +249,9 @@ impl Scene {
         let mut camera = None;
         let mut lights = Vec::new();
 
+        let mut nodes = Vec::new();
+        let mut objects = HashMap::new();
+
         for child in child_elements(&root) {
             match child.name.as_str() {
                 "cameradata" => camera = Some(parse_camera(child)?),
@@ -233,7 +259,7 @@ impl Scene {
                 "globaldata" => {
                     global_lighting_coefficients = Some(parse_global_lighting_coefficients(child)?);
                 }
-                "object" => {}
+                "object" => parse_object(child, &mut nodes, &mut objects)?,
                 other_name => bail!("Unknown tagname <{}>", other_name),
             }
         }
