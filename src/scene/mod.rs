@@ -1,3 +1,7 @@
+use std::cell::RefCell;
+use std::path::PathBuf;
+use std::rc::Rc;
+
 mod parser;
 
 #[derive(Debug)]
@@ -37,13 +41,15 @@ struct Camera {
     height_angle: f32,
 }
 
+#[derive(Debug)]
 struct Texture {
-    filename: String,
+    filename: PathBuf,
     repeat_u: f32,
     repeat_v: f32,
     blend: f32,
 }
 
+#[derive(Debug)]
 struct Material {
     ambient: glm::Vector4<f32>,
     diffuse: glm::Vector4<f32>,
@@ -53,6 +59,7 @@ struct Material {
     texture: Option<Texture>,
 }
 
+#[derive(Debug)]
 enum PrimitiveType {
     Cone,
     Cube,
@@ -60,24 +67,27 @@ enum PrimitiveType {
     Sphere,
 }
 
+#[derive(Debug)]
 struct Primitive {
     material: Material,
     primitive_type: PrimitiveType,
 }
 
+#[derive(Debug)]
 enum Transformation {
     Translate(glm::Vector3<f32>),
     Scale(glm::Vector3<f32>),
     Rotate(glm::Vector3<f32>, f32),
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct Node {
     transformations: Vec<Transformation>,
     primitives: Vec<Primitive>,
-    children: Vec<Node>,
+    children: Vec<Rc<RefCell<Node>>>,
 }
 
+#[derive(Debug)]
 pub struct Scene {
     global_lighting_coefficients: GlobalLightingCoefficients,
     camera: Camera,

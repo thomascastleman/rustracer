@@ -1,9 +1,12 @@
-use super::{GlobalLightingCoefficients, Node};
-use crate::scene::{Camera, Light, Scene};
+use super::{GlobalLightingCoefficients, Material, Node, Primitive, PrimitiveType, Texture};
+use crate::scene::{Camera, Light, Scene, Transformation};
 use anyhow::Result;
 use anyhow::{anyhow, bail};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs::File;
+use std::path::Path;
+use std::rc::Rc;
 use std::str::FromStr;
 use xmltree::Element;
 
@@ -116,6 +119,12 @@ fn parse_camera(element: &Element) -> Result<Camera> {
     Ok(camera)
 }
 
+fn parse_color(element: &Element) -> Result<glm::Vec4> {
+    Ok(parse_vec3(element, ("x", "y", "z"))
+        .or_else(|_| parse_vec3(element, ("r", "g", "b")))?
+        .extend(1.0))
+}
+
 fn parse_light(element: &Element) -> Result<Light> {
     let mut color = None;
     let mut direction = None;
@@ -132,11 +141,7 @@ fn parse_light(element: &Element) -> Result<Light> {
                 light_type = Some(parse_attribute::<String>(child, "v")?);
             }
             "color" => {
-                color = Some(
-                    parse_vec3(child, ("x", "y", "z"))
-                        .or_else(|_| parse_vec3(child, ("r", "g", "b")))?
-                        .extend(1.0),
-                );
+                color = Some(parse_color(child)?);
             }
             "function" => {
                 attenuation = Some(
@@ -215,11 +220,36 @@ fn parse_light(element: &Element) -> Result<Light> {
     }
 }
 
-fn parse_object(
+/// Map from object names to the node for that object
+type ObjectMap = HashMap<String, Rc<RefCell<Node>>>;
+
+fn parse_object_body(
     element: &Element,
-    nodes: &mut Vec<Node>,
-    objects: &mut HashMap<String, Node>,
+    parent_node: &Rc<RefCell<Node>>,
+    objects: &ObjectMap,
+    textures: &Path,
 ) -> Result<()> {
+    for child in child_elements(element) {
+        match child.name.as_str() {
+            "transblock" => {
+                let child_node: Rc<RefCell<Node>> = Default::default();
+
+                // Add child to parent's children list
+                parent_node
+                    .borrow_mut()
+                    .children
+                    .push(Rc::clone(&child_node));
+
+                parse_transblock(child, child_node, objects, textures)?;
+            }
+            other_name => bail!("Cannot have tag <{}> in <object>", other_name),
+        }
+    }
+
+    Ok(())
+}
+
+fn parse_object(element: &Element, objects: &mut ObjectMap, textures: &Path) -> Result<()> {
     let object_name = parse_attribute::<String>(element, "name")?;
     let object_type = parse_attribute::<String>(element, "type")?;
 
@@ -230,16 +260,147 @@ fn parse_object(
         )
     }
 
-    let mut current_node: Node = Default::default();
-    nodes.push(current_node);
-    objects.insert(object_name, current_node);
+    let current_node = Default::default();
+
+    if let Some(_) = objects.insert(object_name.clone(), Rc::clone(&current_node)) {
+        bail!(
+            "Cannot have two objects with the same name: {}",
+            object_name
+        );
+    }
+
+    parse_object_body(element, &current_node, objects, textures)?;
 
     Ok(())
 }
 
+fn parse_transblock(
+    element: &Element,
+    node: Rc<RefCell<Node>>,
+    objects: &ObjectMap,
+    textures: &Path,
+) -> Result<()> {
+    for child in child_elements(element) {
+        match child.name.as_str() {
+            "translate" => {
+                node.borrow_mut()
+                    .transformations
+                    .push(Transformation::Translate(parse_vec3(
+                        child,
+                        ("x", "y", "z"),
+                    )?));
+            }
+            "rotate" => {
+                node.borrow_mut()
+                    .transformations
+                    .push(Transformation::Rotate(
+                        parse_vec3(child, ("x", "y", "z"))?,
+                        parse_attribute(child, "angle")?,
+                    ));
+            }
+            "scale" => {
+                node.borrow_mut()
+                    .transformations
+                    .push(Transformation::Scale(parse_vec3(child, ("x", "y", "z"))?));
+            }
+            "object" => match parse_attribute::<String>(child, "type")?.as_str() {
+                "master" => {
+                    let master_object = objects
+                        .get(&parse_attribute::<String>(child, "name")?)
+                        .ok_or_else(|| anyhow!("Master object must have name"))?;
+
+                    node.borrow_mut().children.push(Rc::clone(master_object));
+                }
+                "tree" => parse_object_body(child, &node, objects, textures)?,
+                "primitive" => parse_primitive(child, &node, textures)?,
+                other_name => bail!("Cannot have tag<{}> in <object>", other_name),
+            },
+            other_name => bail!("Cannot have tag <{}> in <transblock>", other_name),
+        }
+    }
+
+    Ok(())
+}
+
+fn parse_primitive(element: &Element, node: &Rc<RefCell<Node>>, textures: &Path) -> Result<()> {
+    let primitive_type = match parse_attribute::<String>(element, "name")?.as_str() {
+        "sphere" => PrimitiveType::Sphere,
+        "cube" => PrimitiveType::Cube,
+        "cylinder" => PrimitiveType::Cylinder,
+        "cone" => PrimitiveType::Cone,
+        other_name => bail!("Unsupported primitive type {}", other_name),
+    };
+
+    let mut diffuse = None;
+    let mut ambient = None;
+    let mut specular = None;
+    let mut reflective = None;
+    let mut shininess = None;
+    let mut texture = None;
+    let mut blend = None;
+
+    for child in child_elements(element) {
+        match child.name.as_str() {
+            "diffuse" => diffuse = Some(parse_color(child)?),
+            "ambient" => ambient = Some(parse_color(child)?),
+            "specular" => specular = Some(parse_color(child)?),
+            "reflective" => reflective = Some(parse_color(child)?),
+            "shininess" => shininess = Some(parse_attribute::<f32>(child, "v")?),
+            "texture" => texture = Some(parse_texture_map(child, textures)?),
+            "blend" => blend = Some(parse_attribute::<f32>(child, "v")?),
+            other_name => bail!("Cannot have <{}> tag in primitive object", other_name),
+        }
+    }
+
+    // Add the blend to the texture
+    if let Some(ref mut texture) = texture {
+        texture.blend = blend.unwrap_or(0.0);
+    }
+
+    let zero = glm::vec4(0.0, 0.0, 0.0, 0.0);
+
+    let material = Material {
+        ambient: ambient.unwrap_or(zero),
+        diffuse: diffuse.unwrap_or(glm::vec4(1.0, 1.0, 1.0, 0.0)),
+        specular: specular.unwrap_or(zero),
+        shininess: shininess.unwrap_or(0.0),
+        reflective: reflective.unwrap_or(zero),
+        texture,
+    };
+
+    let primitive = Primitive {
+        primitive_type,
+        material,
+    };
+
+    // Add primitive to node's list of primitives
+    node.borrow_mut().primitives.push(primitive);
+
+    Ok(())
+}
+
+fn parse_texture_map(element: &Element, textures: &Path) -> Result<Texture> {
+    let filename = Path::join(
+        textures,
+        Path::new(&parse_attribute::<String>(element, "file")?),
+    );
+
+    let repeat_u = parse_attribute(element, "u").unwrap_or(1.0);
+    let repeat_v = parse_attribute(element, "v").unwrap_or(1.0);
+
+    Ok(Texture {
+        filename,
+        repeat_u,
+        repeat_v,
+        blend: 0.0,
+    })
+}
+
 impl Scene {
-    pub fn parse(filename: &str) -> Result<Self> {
-        let root = Element::parse(File::open(filename)?)?;
+    /// Parses a `Scene` from the given scenefile path and a path that all
+    /// texture images are relative to.
+    pub fn parse(scenefile: &Path, textures: &Path) -> Result<Self> {
+        let root = Element::parse(File::open(scenefile)?)?;
 
         if root.name != "scenefile" {
             bail!("Missing <scenefile> tag");
@@ -249,7 +410,6 @@ impl Scene {
         let mut camera = None;
         let mut lights = Vec::new();
 
-        let mut nodes = Vec::new();
         let mut objects = HashMap::new();
 
         for child in child_elements(&root) {
@@ -259,15 +419,26 @@ impl Scene {
                 "globaldata" => {
                     global_lighting_coefficients = Some(parse_global_lighting_coefficients(child)?);
                 }
-                "object" => parse_object(child, &mut nodes, &mut objects)?,
+                "object" => parse_object(child, &mut objects, textures)?,
                 other_name => bail!("Unknown tagname <{}>", other_name),
             }
         }
 
-        println!("{:?}", global_lighting_coefficients);
-        println!("{:?}", camera);
-        println!("{:?}", lights);
+        let root_node = objects
+            .remove("root")
+            .ok_or_else(|| anyhow!("Scene must have a root object"))?;
 
-        todo!()
+        // Extract ownership of the root node by unwrapping its RefCell and Rc containers.
+        // This works because we have a single Rc<RefCell<Node>> to the root node (it
+        // has no parents), which we've just moved out of the objects map.
+        let root_node = Rc::try_unwrap(root_node).unwrap().into_inner();
+
+        Ok(Scene {
+            global_lighting_coefficients: global_lighting_coefficients
+                .ok_or_else(|| anyhow!("Must have <globaldata> tag"))?,
+            camera: camera.ok_or_else(|| anyhow!("Must have <cameradata> tag"))?,
+            lights,
+            root_node,
+        })
     }
 }
