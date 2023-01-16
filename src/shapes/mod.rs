@@ -1,9 +1,11 @@
 use crate::intersection::{ComponentIntersection, Intersection};
 use crate::scene::Material;
+
 pub struct Ray {
     position: glm::Vec4,
     direction: glm::Vec4,
 }
+
 impl Ray {
     fn transform(&self, transformation: &glm::Mat4, normalize_direction: bool) -> Ray {
         let position = transformation.mul_v(&self.position);
@@ -18,12 +20,15 @@ impl Ray {
             direction,
         }
     }
+
     pub fn to_object_space(&self, transformation: &glm::Mat4) -> Ray {
         self.transform(transformation, false)
     }
+
     pub fn to_world_space(&self, transformation: &glm::Mat4) -> Ray {
         self.transform(transformation, true)
     }
+
     pub fn at(&self, t: f32) -> glm::Vec4 {
         self.position + self.direction * t
     }
@@ -40,7 +45,7 @@ impl Shape {
         let object_ray = ray.to_object_space(&self.ctm);
 
         let mut intersections: Vec<ComponentIntersection> = Vec::new();
-        for component in self.components {
+        for component in &self.components {
             let object_intersection: Option<ComponentIntersection> =
                 component.intersect(&object_ray);
 
@@ -73,7 +78,9 @@ impl Plane {
             .normal
             .as_array()
             .iter()
-            .position(|&axis| axis != 0.0)?;
+            .position(|&axis| axis != 0.0)
+            .unwrap();
+
         let ray_position_on_plane = ray.position.as_array()[normal_axis_index];
         let ray_direction_on_plane = ray.direction.as_array()[normal_axis_index];
 
@@ -100,8 +107,7 @@ impl ShapeComponent for Square {
         let intersection = self.plane.intersect(ray);
 
         // Check square constraints
-
-        return Some(ComponentIntersection { t, normal, uv });
+        todo!()
     }
 }
 
@@ -111,37 +117,68 @@ struct Circle {
 
 impl ShapeComponent for Circle {
     fn intersect(&self, ray: &Ray) -> Option<ComponentIntersection> {
-        let (t, normal, uv) = self.plane.intersect(ray);
+        let intersection = self.plane.intersect(ray);
 
         // Check circle constraints
-
-        return ComponentIntersection { t, normal, uv };
+        todo!()
     }
 }
 
 impl<T: QuadraticBody> ShapeComponent for T {
     fn intersect(&self, ray: &Ray) -> Option<ComponentIntersection> {
-        // calculate the a, b, c
-        let quadratic = self.calculate_quadratic(ray);
-        let solution = solve_quadratic(quadratic)
-            .iter()
-            .filter(|t| self.check_constraint(ray.at(t)))
-            .min()?;
+        let (a, b, c) = self.calculate_quadratic_coefficients(ray);
+
+        let solution = solve_quadratic(a, b, c)
+            .into_iter()
+            .filter(|&t| self.check_constraint(&ray.at(t)))
+            .reduce(f32::min)?;
+
+        let intersection_point = ray.at(solution);
+
         Some(ComponentIntersection {
-            normal: self.get_normal(ray),
-            uv: self.get_uv(),
+            normal: self.normal_at_intersection(&intersection_point),
+            uv: self.uv_at_intersection(&intersection_point),
             t: solution,
         })
     }
 }
 
-fn solve_quadratic((a, b, c): (f32, f32, f32)) -> Vec<f32> {
-    todo!()
+/// Finds all real solutions to a quadratic equation defined by coefficients a, b, and c.
+fn solve_quadratic(a: f32, b: f32, c: f32) -> Vec<f32> {
+    let mut solutions = Vec::new();
+    let discriminant = b.powi(2) - (4.0 * a * c);
+
+    if discriminant >= 0.0 {
+        let root = discriminant.sqrt();
+        let double_a = 2.0 * a;
+        let t1 = (-b + root) / double_a;
+        let t2 = (-b - root) / double_a;
+
+        solutions.push(t1);
+
+        // If the discriminant is 0, then t1 = t2 (multiple root), so no need to include it twice
+        if discriminant != 0.0 {
+            solutions.push(t2);
+        }
+    }
+
+    return solutions;
 }
 
+/// Trait that unifies all shape components whose intersections are computed using a
+/// quadratic function. This includes the cone body, cylinder body, and entire sphere.
 trait QuadraticBody {
-    fn calculate_quadratic(&self, ray: &Ray) -> (f32, f32, f32);
-    fn check_constraint(point: &glm::Vec4) -> bool;
-    fn get_normal(point: glm::Vec4) -> glm::Vec4;
-    fn get_uv(point: glm::Vec4) -> (f32, f32);
+    /// Uses the given ray's position/direction to calculate a quadratic equation whose
+    /// solutions represent intersections with the shape component.
+    fn calculate_quadratic_coefficients(&self, ray: &Ray) -> (f32, f32, f32);
+
+    /// Determines whether or not a given point of intersection actually lies
+    /// within the bounds of the shape component.
+    fn check_constraint(&self, point: &glm::Vec4) -> bool;
+
+    /// Finds the normal vector to the shape component at a given point on the shape component.
+    fn normal_at_intersection(&self, point: &glm::Vec4) -> glm::Vec4;
+
+    /// Finds the UV coordinate at a given point on the shape component.
+    fn uv_at_intersection(&self, point: &glm::Vec4) -> (f32, f32);
 }
