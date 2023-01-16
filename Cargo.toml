@@ -6,4 +6,5 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.68"
 glm = "0.2.3"
+num-traits = "0.2.15"
 xmltree = "0.10.3"

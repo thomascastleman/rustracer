@@ -1,5 +1,5 @@
-use super::{GlobalLightingCoefficients, Material, Node, Primitive, PrimitiveType, Texture};
-use crate::scene::{Camera, Light, Scene, Transformation};
+use super::{GlobalLightingCoefficients, Material, Node, ParsedShape, PrimitiveType, Texture};
+use crate::scene::{Camera, Light, Transformation, TreeScene};
 use anyhow::Result;
 use anyhow::{anyhow, bail};
 use std::cell::RefCell;
@@ -368,13 +368,13 @@ fn parse_primitive(element: &Element, node: &Rc<RefCell<Node>>, textures: &Path)
         texture,
     };
 
-    let primitive = Primitive {
+    let shape = ParsedShape {
         primitive_type,
         material,
     };
 
-    // Add primitive to node's list of primitives
-    node.borrow_mut().primitives.push(primitive);
+    // Add shape to node's list of shapes
+    node.borrow_mut().shapes.push(shape);
 
     Ok(())
 }
@@ -396,7 +396,7 @@ fn parse_texture_map(element: &Element, textures: &Path) -> Result<Texture> {
     })
 }
 
-impl Scene {
+impl TreeScene {
     /// Parses a `Scene` from the given scenefile path and a path that all
     /// texture images are relative to.
     pub fn parse(scenefile: &Path, textures: &Path) -> Result<Self> {
@@ -433,7 +433,7 @@ impl Scene {
         // has no parents), which we've just moved out of the objects map.
         let root_node = Rc::try_unwrap(root_node).unwrap().into_inner();
 
-        Ok(Scene {
+        Ok(TreeScene {
             global_lighting_coefficients: global_lighting_coefficients
                 .ok_or_else(|| anyhow!("Must have <globaldata> tag"))?,
             camera: camera.ok_or_else(|| anyhow!("Must have <cameradata> tag"))?,

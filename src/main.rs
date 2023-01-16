@@ -5,7 +5,7 @@ mod scene;
 mod shapes;
 
 fn main() {
-    let scene = scene::Scene::parse(
+    let scene = scene::TreeScene::parse(
         Path::new(
             "/Users/smorris/Desktop/Sophomore Year/CS1230/scenefiles/test_unit/unit_cube.xml",
         ),

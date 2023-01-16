@@ -1,5 +1,6 @@
 use crate::intersection::{ComponentIntersection, Intersection};
-use crate::scene::Material;
+use crate::scene::{Material, ParsedShape, Primitives};
+use std::rc::Rc;
 
 pub struct Ray {
     position: glm::Vec4,
@@ -34,67 +35,133 @@ impl Ray {
     }
 }
 
-struct Shape {
-    components: Vec<Box<dyn ShapeComponent>>,
-    material: Material,
-    ctm: glm::Mat4,
+/// A Primitive is a object-space version of a Shape, which represents the
+/// geometry of that shape. Primitives are composed of components (for instance
+/// a cube is composed of 6 plane components). All shape instances of the same
+/// kind of shape share a Primitive.
+pub struct Primitive {
+    components: Vec<Box<dyn PrimitiveComponent>>,
 }
 
-impl Shape {
-    fn intersect(&self, ray: &Ray) -> Option<Intersection> {
-        let object_ray = ray.to_object_space(&self.ctm);
-
+impl Primitive {
+    fn intersect(&self, object_space_ray: &Ray) -> Option<ComponentIntersection> {
         let mut intersections: Vec<ComponentIntersection> = Vec::new();
         for component in &self.components {
             let object_intersection: Option<ComponentIntersection> =
-                component.intersect(&object_ray);
+                component.intersect(&object_space_ray);
 
             if let Some(intersection) = object_intersection {
                 intersections.push(intersection);
             }
         }
 
-        let closest = intersections.into_iter().min()?;
+        intersections.into_iter().min()
+    }
+}
+
+/// A Shape represents a particular instance of a Primitive, which has been
+/// transformed and has a material (which affects lighting).
+pub struct Shape {
+    /// Reference to the primitive shape that this is an instance of.
+    primitive: Rc<Primitive>,
+    /// Material of this particular shape.
+    material: Material,
+    /// The cumulative transformation matrix for this shape.
+    ctm: glm::Mat4,
+}
+
+impl Shape {
+    pub fn from_parsed_shape(parsed_shape: &ParsedShape, primitives: &Primitives) -> Self {
+        todo!()
+    }
+
+    fn intersect(&self, ray: &Ray) -> Option<Intersection> {
+        let object_space_ray = ray.to_object_space(&self.ctm);
 
         Some(Intersection {
-            component_intersection: closest,
-            material: self.material,
+            component_intersection: self.primitive.intersect(&object_space_ray)?,
+            material: &self.material,
         })
     }
 }
 
-trait ShapeComponent {
+trait PrimitiveComponent {
     fn intersect(&self, ray: &Ray) -> Option<ComponentIntersection>;
 }
 
+#[derive(Copy, Clone, Debug)]
+enum Axis {
+    X = 0,
+    Y = 1,
+    Z = 2,
+}
+
 struct Plane {
-    normal: glm::Vec3,
+    normal_axis: Axis,
     elevation: f32,
 }
 
 impl Plane {
     fn intersect(&self, ray: &Ray) -> Option<ComponentIntersection> {
-        let normal_axis_index = self
-            .normal
-            .as_array()
-            .iter()
-            .position(|&axis| axis != 0.0)
-            .unwrap();
+        let ray_position_on_plane = ray.position.as_array()[self.normal_axis as usize];
+        let ray_direction_on_plane = ray.direction.as_array()[self.normal_axis as usize];
 
-        let ray_position_on_plane = ray.position.as_array()[normal_axis_index];
-        let ray_direction_on_plane = ray.direction.as_array()[normal_axis_index];
+        if ray_direction_on_plane == 0.0 {
+            return None;
+        }
 
         let t = (self.elevation - ray_position_on_plane) / ray_direction_on_plane;
 
-        // TODO: UV mapping has more complexity than this
-        let mut uv = ray.at(t).as_array().to_vec();
-        uv.remove(normal_axis_index);
+        let uv = self.uv_map(&ray.at(t));
 
         Some(ComponentIntersection {
             t,
-            normal: self.normal.extend(0.0),
-            uv: (uv[0], uv[1]),
+            normal: self.normal(),
+            uv,
         })
+    }
+
+    fn uv_map(&self, point: &glm::Vec4) -> (f32, f32) {
+        let prescaled = match self.normal_axis {
+            Axis::X => {
+                if self.elevation > 0.0 {
+                    (-point.z, point.y)
+                } else {
+                    (point.z, point.y)
+                }
+            }
+            Axis::Y => {
+                if self.elevation > 0.0 {
+                    (point.x, -point.z)
+                } else {
+                    (point.x, point.z)
+                }
+            }
+            Axis::Z => {
+                if self.elevation > 0.0 {
+                    (point.x, point.y)
+                } else {
+                    (-point.x, point.y)
+                }
+            }
+        };
+
+        (prescaled.0 + 0.5, prescaled.1 + 0.5)
+    }
+
+    fn normal(&self) -> glm::Vec4 {
+        let mut normal = glm::vec4(0.0, 0.0, 0.0, 0.0);
+        normal[self.normal_axis as usize] = 1.0;
+        normal
+    }
+
+    /// Flattens a point in 3D space onto this plane, returning a 2D point.
+    fn flatten_onto(&self, point: &glm::Vec4) -> [f32; 2] {
+        match self.normal_axis {
+            Axis::X => [point.y, point.z],
+            Axis::Y => [point.x, point.z],
+            Axis::Z => [point.x, point.y],
+        }
     }
 }
 
@@ -102,12 +169,21 @@ struct Square {
     plane: Plane,
 }
 
-impl ShapeComponent for Square {
+impl PrimitiveComponent for Square {
     fn intersect(&self, ray: &Ray) -> Option<ComponentIntersection> {
-        let intersection = self.plane.intersect(ray);
+        let intersection = self.plane.intersect(ray)?;
+        let intersection_point = ray.at(intersection.t);
+        let flattened_intersection_point = self.plane.flatten_onto(&intersection_point);
 
-        // Check square constraints
-        todo!()
+        fn within_square(v: f32) -> bool {
+            -0.5 <= v && v <= 0.5
+        }
+
+        if flattened_intersection_point.into_iter().all(within_square) {
+            Some(intersection)
+        } else {
+            None
+        }
     }
 }
 
@@ -115,16 +191,21 @@ struct Circle {
     plane: Plane,
 }
 
-impl ShapeComponent for Circle {
+impl PrimitiveComponent for Circle {
     fn intersect(&self, ray: &Ray) -> Option<ComponentIntersection> {
-        let intersection = self.plane.intersect(ray);
+        let intersection = self.plane.intersect(ray)?;
+        let intersection_point = ray.at(intersection.t);
+        let [horizontal, vertical] = self.plane.flatten_onto(&intersection_point);
 
-        // Check circle constraints
-        todo!()
+        if horizontal.powi(2) + vertical.powi(2) <= 0.5f32.powi(2) {
+            Some(intersection)
+        } else {
+            None
+        }
     }
 }
 
-impl<T: QuadraticBody> ShapeComponent for T {
+impl<T: QuadraticBody> PrimitiveComponent for T {
     fn intersect(&self, ray: &Ray) -> Option<ComponentIntersection> {
         let (a, b, c) = self.calculate_quadratic_coefficients(ray);
 
