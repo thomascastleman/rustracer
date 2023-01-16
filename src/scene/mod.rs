@@ -50,7 +50,7 @@ struct Texture {
 }
 
 #[derive(Debug)]
-struct Material {
+pub struct Material {
     ambient: glm::Vector4<f32>,
     diffuse: glm::Vector4<f32>,
     specular: glm::Vector4<f32>,
