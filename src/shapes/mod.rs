@@ -1,6 +1,10 @@
+use num_traits::Pow;
+
 use crate::intersection::{ComponentIntersection, Intersection};
-use crate::scene::{Material, ParsedShape, Primitives};
+use crate::scene::{Material, ParsedShape, PrimitiveType, Primitives};
+use std::f32::consts::PI;
 use std::rc::Rc;
+use std::slice::Iter;
 
 pub struct Ray {
     position: glm::Vec4,
@@ -40,7 +44,7 @@ impl Ray {
 /// a cube is composed of 6 plane components). All shape instances of the same
 /// kind of shape share a Primitive.
 pub struct Primitive {
-    components: Vec<Box<dyn PrimitiveComponent>>,
+    pub components: Vec<Box<dyn PrimitiveComponent>>,
 }
 
 impl Primitive {
@@ -71,8 +75,23 @@ pub struct Shape {
 }
 
 impl Shape {
-    pub fn from_parsed_shape(parsed_shape: &ParsedShape, primitives: &Primitives) -> Self {
-        todo!()
+    pub fn from_parsed_shape(
+        parsed_shape: &ParsedShape,
+        primitives: &Primitives,
+        ctm: glm::Mat4,
+    ) -> Self {
+        let primitive = Rc::clone(match parsed_shape.primitive_type {
+            PrimitiveType::Cone => &primitives.cone,
+            PrimitiveType::Cube => &primitives.cube,
+            PrimitiveType::Sphere => &primitives.sphere,
+            PrimitiveType::Cylinder => &primitives.cylinder,
+        });
+
+        Self {
+            primitive,
+            material: parsed_shape.material,
+            ctm,
+        }
     }
 
     fn intersect(&self, ray: &Ray) -> Option<Intersection> {
@@ -85,20 +104,27 @@ impl Shape {
     }
 }
 
-trait PrimitiveComponent {
+pub trait PrimitiveComponent {
     fn intersect(&self, ray: &Ray) -> Option<ComponentIntersection>;
 }
 
 #[derive(Copy, Clone, Debug)]
-enum Axis {
+pub enum Axis {
     X = 0,
     Y = 1,
     Z = 2,
 }
 
-struct Plane {
-    normal_axis: Axis,
-    elevation: f32,
+impl Axis {
+    pub fn iterator() -> Iter<'static, Axis> {
+        static AXES: [Axis; 3] = [Axis::X, Axis::Y, Axis::Z];
+        AXES.iter()
+    }
+}
+
+pub struct Plane {
+    pub normal_axis: Axis,
+    pub elevation: f32,
 }
 
 impl Plane {
@@ -165,8 +191,8 @@ impl Plane {
     }
 }
 
-struct Square {
-    plane: Plane,
+pub struct Square {
+    pub plane: Plane,
 }
 
 impl PrimitiveComponent for Square {
@@ -187,8 +213,8 @@ impl PrimitiveComponent for Square {
     }
 }
 
-struct Circle {
-    plane: Plane,
+pub struct Circle {
+    pub plane: Plane,
 }
 
 impl PrimitiveComponent for Circle {
@@ -255,11 +281,112 @@ trait QuadraticBody {
 
     /// Determines whether or not a given point of intersection actually lies
     /// within the bounds of the shape component.
-    fn check_constraint(&self, point: &glm::Vec4) -> bool;
+    fn check_constraint(&self, point: &glm::Vec4) -> bool {
+        -0.5 >= point.y && point.y <= 0.5
+    }
 
     /// Finds the normal vector to the shape component at a given point on the shape component.
     fn normal_at_intersection(&self, point: &glm::Vec4) -> glm::Vec4;
 
     /// Finds the UV coordinate at a given point on the shape component.
     fn uv_at_intersection(&self, point: &glm::Vec4) -> (f32, f32);
+}
+
+pub struct ConeBody {}
+impl QuadraticBody for ConeBody {
+    fn calculate_quadratic_coefficients(&self, ray: &Ray) -> (f32, f32, f32) {
+        let a = ray.direction.x.powi(2) + ray.direction.z.powi(2)
+            - (1.0 / 4.0) * ray.direction.y.powi(2);
+        let b = (2.0 * ray.position.x * ray.direction.x)
+            + (2.0 * ray.position.z * ray.direction.z)
+            + ((1.0 / 4.0) * ray.direction.y)
+            - ((1.0 / 2.0) * ray.position.y * ray.direction.y);
+        let c = ray.position.x.powi(2) + ray.position.z.powi(2) + ((1.0 / 4.0) * ray.position.y)
+            - (1.0 / 4.0) * ray.position.y.powi(2)
+            - (1.0 / 16.0);
+
+        (a, b, c)
+    }
+
+    fn normal_at_intersection(&self, point: &glm::Vec4) -> glm::Vec4 {
+        let x_norm = 1.0 * point.x;
+        let y_norm = -(1.0 / 4.0) * (2.0 * point.y - 1.0);
+        let z_norm = 2.0 * point.z;
+
+        glm::vec4(x_norm, y_norm, z_norm, 0.0)
+    }
+
+    fn uv_at_intersection(&self, point: &glm::Vec4) -> (f32, f32) {
+        let theta = point.z.atan2(point.x);
+        let u = if theta < 0.0 {
+            -theta / (2.0 * PI)
+        } else {
+            1.0 - (theta / (2.0 * PI))
+        };
+
+        (u, point.y + 0.5)
+    }
+}
+
+pub struct CylinderBody {}
+impl QuadraticBody for CylinderBody {
+    fn calculate_quadratic_coefficients(&self, ray: &Ray) -> (f32, f32, f32) {
+        let a = ray.direction.x.powi(2) + ray.direction.z.powi(2);
+        let b = 2.0 * (ray.position.x + ray.direction.x + ray.position.z + ray.direction.z);
+        let c = ray.position.x.powi(2) + ray.position.z.powi(2) - 0.5f32.powi(2);
+
+        (a, b, c)
+    }
+
+    fn normal_at_intersection(&self, point: &glm::Vec4) -> glm::Vec4 {
+        glm::vec4(2.0 * point.x, 0.0, 2.0 * point.z, 0.0)
+    }
+
+    fn uv_at_intersection(&self, point: &glm::Vec4) -> (f32, f32) {
+        let theta = point.z.atan2(point.x);
+        let u = if theta < 0.0 {
+            -theta / (2.0 * PI)
+        } else {
+            1.0 - (theta / (2.0 * PI))
+        };
+
+        (u, point.y + 0.5)
+    }
+}
+
+pub struct Sphere {}
+impl QuadraticBody for Sphere {
+    fn calculate_quadratic_coefficients(&self, ray: &Ray) -> (f32, f32, f32) {
+        let a = ray.direction.x.powi(2) + ray.direction.y.powi(2) + ray.direction.z.powi(2);
+        let b = 2.0
+            * (ray.position.x * ray.direction.x
+                + ray.position.y * ray.direction.y
+                + ray.position.z
+                + ray.direction.z);
+        let c = ray.position.x.powi(2) + ray.position.y.powi(2) + ray.position.z.powi(2)
+            - 0.5f32.powi(2);
+
+        (a, b, c)
+    }
+
+    fn normal_at_intersection(&self, point: &glm::Vec4) -> glm::Vec4 {
+        glm::vec4(2.0 * point.x, 2.0 * point.y, 2.0 * point.z, 0.0)
+    }
+
+    fn uv_at_intersection(&self, point: &glm::Vec4) -> (f32, f32) {
+        let v = (point.y / 0.5).asin() / PI + 0.5;
+
+        let u = if v == 0.0 || v == 1.0 {
+            0.5
+        } else {
+            let theta = point.z.atan2(point.x);
+            if theta < 0.0 {
+                -theta / (2.0 * PI)
+            } else {
+                1.0 - (theta / (2.0 * PI))
+            }
+        };
+
+        (u, v)
+    }
 }

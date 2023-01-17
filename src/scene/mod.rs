@@ -1,4 +1,7 @@
-use crate::shapes::{Primitive, Shape};
+use crate::shapes::{
+    Axis, Circle, ConeBody, CylinderBody, Plane, Primitive, PrimitiveComponent, Shape, Sphere,
+    Square,
+};
 use num_traits::identities::One;
 use std::cell::RefCell;
 use std::path::PathBuf;
@@ -62,7 +65,7 @@ pub struct Material {
 }
 
 #[derive(Debug)]
-enum PrimitiveType {
+pub enum PrimitiveType {
     Cone,
     Cube,
     Cylinder,
@@ -71,8 +74,8 @@ enum PrimitiveType {
 
 #[derive(Debug)]
 pub struct ParsedShape {
-    material: Material,
-    primitive_type: PrimitiveType,
+    pub material: Material,
+    pub primitive_type: PrimitiveType,
 }
 
 #[derive(Debug)]
@@ -129,7 +132,7 @@ impl Scene {
         }
 
         for parsed_shape in &node.shapes {
-            shapes.push(Shape::from_parsed_shape(parsed_shape, primitives));
+            shapes.push(Shape::from_parsed_shape(parsed_shape, primitives, ctm));
         }
 
         for child in &node.children {
@@ -163,14 +166,55 @@ impl From<TreeScene> for Scene {
 }
 
 pub struct Primitives {
-    cube: Rc<Primitive>,
-    sphere: Rc<Primitive>,
-    cylinder: Rc<Primitive>,
-    cone: Rc<Primitive>,
+    pub cube: Rc<Primitive>,
+    pub sphere: Rc<Primitive>,
+    pub cylinder: Rc<Primitive>,
+    pub cone: Rc<Primitive>,
 }
 
 impl Primitives {
     fn new() -> Self {
-        todo!()
+        let mut cube_components: Vec<Box<dyn PrimitiveComponent>> = Vec::new();
+        for &normal_axis in Axis::iterator() {
+            for elevation in [-0.5, 0.5] {
+                cube_components.push(Box::new(Square {
+                    plane: Plane {
+                        normal_axis,
+                        elevation,
+                    },
+                }))
+            }
+        }
+
+        Self {
+            cube: Rc::new(Primitive {
+                components: cube_components,
+            }),
+            sphere: Rc::new(Primitive {
+                components: vec![Box::new(Sphere {})],
+            }),
+            cylinder: Rc::new(Primitive {
+                components: vec![
+                    Box::new(CylinderBody {}),
+                    Box::new(Circle {
+                        plane: Plane {
+                            normal_axis: Axis::Y,
+                            elevation: -0.5,
+                        },
+                    }),
+                ],
+            }),
+            cone: Rc::new(Primitive {
+                components: vec![
+                    Box::new(ConeBody {}),
+                    Box::new(Circle {
+                        plane: Plane {
+                            normal_axis: Axis::Y,
+                            elevation: -0.5,
+                        },
+                    }),
+                ],
+            }),
+        }
     }
 }
