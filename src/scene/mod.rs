@@ -46,7 +46,7 @@ struct Camera {
     height_angle: f32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Texture {
     filename: PathBuf,
     repeat_u: f32,
@@ -54,7 +54,7 @@ struct Texture {
     blend: f32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Material {
     ambient: glm::Vector4<f32>,
     diffuse: glm::Vector4<f32>,

@@ -87,9 +87,10 @@ impl Shape {
             PrimitiveType::Cylinder => &primitives.cylinder,
         });
 
+        // TODO: Instead of cloning the material here, we could have it be multiply-owned (Rc)
         Self {
             primitive,
-            material: parsed_shape.material,
+            material: parsed_shape.material.clone(),
             ctm,
         }
     }
