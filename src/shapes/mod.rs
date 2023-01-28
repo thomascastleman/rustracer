@@ -1,5 +1,3 @@
-use num_traits::Pow;
-
 use crate::intersection::{ComponentIntersection, Intersection};
 use crate::scene::{Material, ParsedShape, PrimitiveType, Primitives};
 use std::f32::consts::PI;
@@ -12,7 +10,15 @@ pub struct Ray {
 }
 
 impl Ray {
-    fn transform(&self, transformation: &glm::Mat4, normalize_direction: bool) -> Ray {
+    /// Constructs a new Ray from the given components.
+    pub fn new(position: glm::Vec4, direction: glm::Vec4) -> Self {
+        Self {
+            position,
+            direction,
+        }
+    }
+
+    pub fn transform(&self, transformation: &glm::Mat4, normalize_direction: bool) -> Ray {
         let position = transformation.mul_v(&self.position);
         let mut direction = transformation.mul_v(&self.direction);
 
@@ -43,6 +49,7 @@ impl Ray {
 /// geometry of that shape. Primitives are composed of components (for instance
 /// a cube is composed of 6 plane components). All shape instances of the same
 /// kind of shape share a Primitive.
+#[derive(Debug)]
 pub struct Primitive {
     pub components: Vec<Box<dyn PrimitiveComponent>>,
 }
@@ -65,6 +72,7 @@ impl Primitive {
 
 /// A Shape represents a particular instance of a Primitive, which has been
 /// transformed and has a material (which affects lighting).
+#[derive(Debug)]
 pub struct Shape {
     /// Reference to the primitive shape that this is an instance of.
     primitive: Rc<Primitive>,
@@ -105,7 +113,7 @@ impl Shape {
     }
 }
 
-pub trait PrimitiveComponent {
+pub trait PrimitiveComponent: std::fmt::Debug {
     fn intersect(&self, ray: &Ray) -> Option<ComponentIntersection>;
 }
 
@@ -123,6 +131,7 @@ impl Axis {
     }
 }
 
+#[derive(Debug)]
 pub struct Plane {
     pub normal_axis: Axis,
     pub elevation: f32,
@@ -192,6 +201,7 @@ impl Plane {
     }
 }
 
+#[derive(Debug)]
 pub struct Square {
     pub plane: Plane,
 }
@@ -214,6 +224,7 @@ impl PrimitiveComponent for Square {
     }
 }
 
+#[derive(Debug)]
 pub struct Circle {
     pub plane: Plane,
 }
@@ -232,7 +243,7 @@ impl PrimitiveComponent for Circle {
     }
 }
 
-impl<T: QuadraticBody> PrimitiveComponent for T {
+impl<T: QuadraticBody + std::fmt::Debug> PrimitiveComponent for T {
     fn intersect(&self, ray: &Ray) -> Option<ComponentIntersection> {
         let (a, b, c) = self.calculate_quadratic_coefficients(ray);
 
@@ -293,7 +304,9 @@ trait QuadraticBody {
     fn uv_at_intersection(&self, point: &glm::Vec4) -> (f32, f32);
 }
 
-pub struct ConeBody {}
+#[derive(Debug)]
+pub struct ConeBody;
+
 impl QuadraticBody for ConeBody {
     fn calculate_quadratic_coefficients(&self, ray: &Ray) -> (f32, f32, f32) {
         let a = ray.direction.x.powi(2) + ray.direction.z.powi(2)
@@ -329,7 +342,9 @@ impl QuadraticBody for ConeBody {
     }
 }
 
-pub struct CylinderBody {}
+#[derive(Debug)]
+pub struct CylinderBody;
+
 impl QuadraticBody for CylinderBody {
     fn calculate_quadratic_coefficients(&self, ray: &Ray) -> (f32, f32, f32) {
         let a = ray.direction.x.powi(2) + ray.direction.z.powi(2);
@@ -355,7 +370,9 @@ impl QuadraticBody for CylinderBody {
     }
 }
 
-pub struct Sphere {}
+#[derive(Debug)]
+pub struct Sphere;
+
 impl QuadraticBody for Sphere {
     fn calculate_quadratic_coefficients(&self, ray: &Ray) -> (f32, f32, f32) {
         let a = ray.direction.x.powi(2) + ray.direction.y.powi(2) + ray.direction.z.powi(2);

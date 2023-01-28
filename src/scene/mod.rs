@@ -10,7 +10,7 @@ use std::rc::Rc;
 mod parser;
 
 #[derive(Debug)]
-enum Light {
+pub enum Light {
     Point {
         color: glm::Vector4<f32>,
         position: glm::Vector4<f32>,
@@ -32,22 +32,40 @@ enum Light {
 }
 
 #[derive(Debug)]
-struct GlobalLightingCoefficients {
+pub struct GlobalLightingCoefficients {
     ka: f32,
     kd: f32,
     ks: f32,
 }
 
 #[derive(Debug)]
-struct Camera {
+pub struct Camera {
     position: glm::Vector4<f32>,
     look: glm::Vector4<f32>,
     up: glm::Vector4<f32>,
-    height_angle: f32,
+    pub height_angle: f32,
+}
+
+impl Camera {
+    fn inverse_view_matrix(&self) {
+        let w = glm::normalize(-self.look).truncate(3);
+        let v = glm::normalize(self.up.truncate(3) - (w * glm::dot(self.up.truncate(3), w)));
+        let u = glm::cross(v, w);
+    
+        let x_rotate_col = glm::vec4(u.x, v.x, w.x, 0.0);
+        let y_rotate_col = glm::vec4(u.y, v.y, w.y, 0.0);
+        let z_rotate_col = glm::vec4(u.z, v.z, w.z, 0.0);
+        let w_rotate_col = glm::vec4(0.0, 0.0, 0.0, 1.0);
+    
+        let rotate_m = glm::mat4(xRotateCol, yRotateCol, zRotateCol, wRotateCol);
+        glm::mat4 translateM = glm::translate(-pos);
+    
+        return rotateM * translateM;
+    }
 }
 
 #[derive(Debug, Clone)]
-struct Texture {
+pub struct Texture {
     filename: PathBuf,
     repeat_u: f32,
     repeat_v: f32,
@@ -110,11 +128,12 @@ pub struct TreeScene {
     root_node: Node,
 }
 
+#[derive(Debug)]
 pub struct Scene {
-    global_lighting_coefficients: GlobalLightingCoefficients,
-    camera: Camera,
-    lights: Vec<Light>,
-    shapes: Vec<Shape>,
+    pub global_lighting_coefficients: GlobalLightingCoefficients,
+    pub camera: Camera,
+    pub lights: Vec<Light>,
+    pub shapes: Vec<Shape>,
     primitives: Primitives,
 }
 
@@ -165,6 +184,7 @@ impl From<TreeScene> for Scene {
     }
 }
 
+#[derive(Debug)]
 pub struct Primitives {
     pub cube: Rc<Primitive>,
     pub sphere: Rc<Primitive>,
