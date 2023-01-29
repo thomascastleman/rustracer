@@ -52,12 +52,12 @@ fn render(scene: &Scene, config: &Config) -> RgbImage {
             for shape in &scene.shapes {}
 
             output_image.put_pixel(
-                x,
-                y,
+                col,
+                row,
                 Rgb([
                     255,
-                    (x % 255).try_into().unwrap(),
-                    (y % 255).try_into().unwrap(),
+                    (col % 255).try_into().unwrap(),
+                    (row % 255).try_into().unwrap(),
                 ]),
             );
         }

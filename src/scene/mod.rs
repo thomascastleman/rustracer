@@ -47,20 +47,23 @@ pub struct Camera {
 }
 
 impl Camera {
-    fn inverse_view_matrix(&self) {
+    fn inverse_view_matrix(&self) -> glm::Mat4 {
         let w = glm::normalize(-self.look).truncate(3);
         let v = glm::normalize(self.up.truncate(3) - (w * glm::dot(self.up.truncate(3), w)));
         let u = glm::cross(v, w);
-    
-        let x_rotate_col = glm::vec4(u.x, v.x, w.x, 0.0);
-        let y_rotate_col = glm::vec4(u.y, v.y, w.y, 0.0);
-        let z_rotate_col = glm::vec4(u.z, v.z, w.z, 0.0);
-        let w_rotate_col = glm::vec4(0.0, 0.0, 0.0, 1.0);
-    
-        let rotate_m = glm::mat4(xRotateCol, yRotateCol, zRotateCol, wRotateCol);
-        glm::mat4 translateM = glm::translate(-pos);
-    
-        return rotateM * translateM;
+
+        let rotation_columns = [
+            glm::vec4(u.x, v.x, w.x, 0.0),
+            glm::vec4(u.y, v.y, w.y, 0.0),
+            glm::vec4(u.z, v.z, w.z, 0.0),
+            glm::vec4(0.0, 0.0, 0.0, 1.0),
+        ];
+        let rotation_matrix = glm::Mat4::from_array(&rotation_columns);
+
+        let rotate_and_translate_matrix =
+            glm::ext::translate(rotation_matrix, -self.position.truncate(3));
+
+        rotate_and_translate_matrix
     }
 }
 
