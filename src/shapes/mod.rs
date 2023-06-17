@@ -7,7 +7,7 @@ use std::slice::Iter;
 #[derive(Debug)]
 pub struct Ray {
     position: glm::Vec4,
-    direction: glm::Vec4,
+    pub direction: glm::Vec4,
 }
 
 impl Ray {

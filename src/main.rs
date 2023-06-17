@@ -1,5 +1,4 @@
 use image::{Rgb, RgbImage};
-use num_traits::Zero;
 use std::path::PathBuf;
 
 use structopt::StructOpt;
@@ -8,12 +7,13 @@ use crate::scene::Scene;
 use crate::shapes::Ray;
 
 mod intersection;
+mod lights;
 mod scene;
 mod shapes;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "rustracer", about = "A Rust Raytracer")]
-struct Config {
+pub struct Config {
     #[structopt(short, long)]
     width: u32,
 
@@ -28,6 +28,9 @@ struct Config {
 
     #[structopt(short, long, parse(from_os_str))]
     textures: PathBuf,
+
+    #[structopt(short, long)]
+    enable_shadows: bool,
 }
 
 fn render(scene: &Scene, config: &Config) -> RgbImage {
@@ -57,11 +60,22 @@ fn render(scene: &Scene, config: &Config) -> RgbImage {
                 .min();
 
             let color = if let Some(intersection) = closest_intersection {
-                let normal = glm::normalize(intersection.component_intersection.normal) * 255.0;
-                Rgb([normal.x as u8, normal.y as u8, normal.z as u8])
+                lights::to_rgba(&lights::phong(scene, config, &intersection, &world_ray))
             } else {
                 Rgb([0, 0, 0])
             };
+
+            // NOTE: For rendering normals
+            // let color = if let Some(intersection) = closest_intersection {
+            //     let normal = glm::normalize(intersection.component_intersection.normal);
+            //     Rgb([
+            //         ((normal.x + 1.0) / 2.0 * 255.0) as u8,
+            //         ((normal.y + 1.0) / 2.0 * 255.0) as u8,
+            //         ((normal.z + 1.0) / 2.0 * 255.0) as u8,
+            //     ])
+            // } else {
+            //     Rgb([0, 0, 0])
+            // };
 
             output_image.put_pixel(col, row, color);
         }

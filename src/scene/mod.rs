@@ -3,7 +3,6 @@ use crate::shapes::{
     Square,
 };
 use num_traits::identities::One;
-use num_traits::Zero;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -34,9 +33,9 @@ pub enum Light {
 
 #[derive(Debug)]
 pub struct GlobalLightingCoefficients {
-    ka: f32,
-    kd: f32,
-    ks: f32,
+    pub ka: f32,
+    pub kd: f32,
+    pub ks: f32,
 }
 
 #[derive(Debug)]
@@ -98,12 +97,12 @@ pub struct Texture {
 
 #[derive(Debug, Clone)]
 pub struct Material {
-    ambient: glm::Vector4<f32>,
-    diffuse: glm::Vector4<f32>,
-    specular: glm::Vector4<f32>,
-    shininess: f32,
-    reflective: glm::Vector4<f32>,
-    texture: Option<Texture>,
+    pub ambient: glm::Vector4<f32>,
+    pub diffuse: glm::Vector4<f32>,
+    pub specular: glm::Vector4<f32>,
+    pub shininess: f32,
+    pub reflective: glm::Vector4<f32>,
+    pub texture: Option<Texture>,
 }
 
 #[derive(Debug)]
