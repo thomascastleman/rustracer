@@ -4,6 +4,7 @@ use std::f32::consts::PI;
 use std::rc::Rc;
 use std::slice::Iter;
 
+#[derive(Debug)]
 pub struct Ray {
     position: glm::Vec4,
     direction: glm::Vec4,
@@ -59,7 +60,7 @@ impl Primitive {
         let mut intersections: Vec<ComponentIntersection> = Vec::new();
         for component in &self.components {
             let object_intersection: Option<ComponentIntersection> =
-                component.intersect(&object_space_ray);
+                component.intersect(object_space_ray);
 
             if let Some(intersection) = object_intersection {
                 intersections.push(intersection);
@@ -103,7 +104,7 @@ impl Shape {
         }
     }
 
-    fn intersect(&self, ray: &Ray) -> Option<Intersection> {
+    pub fn intersect(&self, ray: &Ray) -> Option<Intersection> {
         let object_space_ray = ray.to_object_space(&self.ctm);
 
         Some(Intersection {
@@ -147,6 +148,11 @@ impl Plane {
         }
 
         let t = (self.elevation - ray_position_on_plane) / ray_direction_on_plane;
+
+        // Reject negative t-values which represent aiming in the opposite direction of the ray
+        if t < 0.0 {
+            return None;
+        }
 
         let uv = self.uv_map(&ray.at(t));
 
@@ -213,7 +219,7 @@ impl PrimitiveComponent for Square {
         let flattened_intersection_point = self.plane.flatten_onto(&intersection_point);
 
         fn within_square(v: f32) -> bool {
-            -0.5 <= v && v <= 0.5
+            (-0.5..=0.5).contains(&v)
         }
 
         if flattened_intersection_point.into_iter().all(within_square) {
@@ -249,7 +255,7 @@ impl<T: QuadraticBody + std::fmt::Debug> PrimitiveComponent for T {
 
         let solution = solve_quadratic(a, b, c)
             .into_iter()
-            .filter(|&t| self.check_constraint(&ray.at(t)))
+            .filter(|&t| t >= 0.0 && self.check_constraint(&ray.at(t)))
             .reduce(f32::min)?;
 
         let intersection_point = ray.at(solution);
@@ -281,7 +287,7 @@ fn solve_quadratic(a: f32, b: f32, c: f32) -> Vec<f32> {
         }
     }
 
-    return solutions;
+    solutions
 }
 
 /// Trait that unifies all shape components whose intersections are computed using a
@@ -294,7 +300,7 @@ trait QuadraticBody {
     /// Determines whether or not a given point of intersection actually lies
     /// within the bounds of the shape component.
     fn check_constraint(&self, point: &glm::Vec4) -> bool {
-        -0.5 >= point.y && point.y <= 0.5
+        -0.5 <= point.y && point.y <= 0.5
     }
 
     /// Finds the normal vector to the shape component at a given point on the shape component.
@@ -323,7 +329,7 @@ impl QuadraticBody for ConeBody {
     }
 
     fn normal_at_intersection(&self, point: &glm::Vec4) -> glm::Vec4 {
-        let x_norm = 1.0 * point.x;
+        let x_norm = 2.0 * point.x;
         let y_norm = -(1.0 / 4.0) * (2.0 * point.y - 1.0);
         let z_norm = 2.0 * point.z;
 
@@ -348,7 +354,7 @@ pub struct CylinderBody;
 impl QuadraticBody for CylinderBody {
     fn calculate_quadratic_coefficients(&self, ray: &Ray) -> (f32, f32, f32) {
         let a = ray.direction.x.powi(2) + ray.direction.z.powi(2);
-        let b = 2.0 * (ray.position.x + ray.direction.x + ray.position.z + ray.direction.z);
+        let b = 2.0 * (ray.position.x * ray.direction.x + ray.position.z * ray.direction.z);
         let c = ray.position.x.powi(2) + ray.position.z.powi(2) - 0.5f32.powi(2);
 
         (a, b, c)
@@ -379,8 +385,7 @@ impl QuadraticBody for Sphere {
         let b = 2.0
             * (ray.position.x * ray.direction.x
                 + ray.position.y * ray.direction.y
-                + ray.position.z
-                + ray.direction.z);
+                + ray.position.z * ray.direction.z);
         let c = ray.position.x.powi(2) + ray.position.y.powi(2) + ray.position.z.powi(2)
             - 0.5f32.powi(2);
 

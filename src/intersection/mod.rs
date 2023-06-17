@@ -1,6 +1,7 @@
 use crate::scene::Material;
 use std::cmp::Ordering;
 
+#[derive(Debug)]
 pub struct ComponentIntersection {
     pub t: f32,
     pub normal: glm::Vec4,
@@ -27,6 +28,7 @@ impl PartialEq for ComponentIntersection {
 
 impl Eq for ComponentIntersection {}
 
+#[derive(Debug)]
 pub struct Intersection<'a> {
     pub component_intersection: ComponentIntersection,
     pub material: &'a Material,

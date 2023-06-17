@@ -3,6 +3,7 @@ use crate::shapes::{
     Square,
 };
 use num_traits::identities::One;
+use num_traits::Zero;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -44,26 +45,46 @@ pub struct Camera {
     look: glm::Vector4<f32>,
     up: glm::Vector4<f32>,
     pub height_angle: f32,
+    pub inverse_view_matrix: glm::Mat4,
 }
 
 impl Camera {
-    fn inverse_view_matrix(&self) -> glm::Mat4 {
-        let w = glm::normalize(-self.look).truncate(3);
-        let v = glm::normalize(self.up.truncate(3) - (w * glm::dot(self.up.truncate(3), w)));
+    pub fn new(position: glm::Vec4, look: glm::Vec4, up: glm::Vec4, height_angle: f32) -> Self {
+        Self {
+            position,
+            look,
+            up,
+            height_angle,
+            inverse_view_matrix: Camera::calculate_inverse_view_matrix(position, look, up),
+        }
+    }
+
+    fn calculate_inverse_view_matrix(
+        position: glm::Vec4,
+        look: glm::Vec4,
+        up: glm::Vec4,
+    ) -> glm::Mat4 {
+        let w = glm::normalize(-look).truncate(3);
+        let v = glm::normalize(up.truncate(3) - (w * glm::dot(up.truncate(3), w)));
         let u = glm::cross(v, w);
 
-        let rotation_columns = [
+        let rotation_matrix = glm::Mat4::new(
             glm::vec4(u.x, v.x, w.x, 0.0),
             glm::vec4(u.y, v.y, w.y, 0.0),
             glm::vec4(u.z, v.z, w.z, 0.0),
             glm::vec4(0.0, 0.0, 0.0, 1.0),
-        ];
-        let rotation_matrix = glm::Mat4::from_array(&rotation_columns);
+        );
 
-        let rotate_and_translate_matrix =
-            glm::ext::translate(rotation_matrix, -self.position.truncate(3));
+        let translation_matrix = glm::Mat4::new(
+            glm::vec4(1.0, 0.0, 0.0, 0.0),
+            glm::vec4(0.0, 1.0, 0.0, 0.0),
+            glm::vec4(0.0, 0.0, 1.0, 0.0),
+            glm::vec4(-position.x, -position.y, -position.z, 1.0),
+        );
 
-        rotate_and_translate_matrix
+        let rotate_and_translate_matrix = rotation_matrix * translation_matrix;
+
+        glm::inverse(&rotate_and_translate_matrix)
     }
 }
 
@@ -219,6 +240,12 @@ impl Primitives {
             cylinder: Rc::new(Primitive {
                 components: vec![
                     Box::new(CylinderBody {}),
+                    Box::new(Circle {
+                        plane: Plane {
+                            normal_axis: Axis::Y,
+                            elevation: 0.5,
+                        },
+                    }),
                     Box::new(Circle {
                         plane: Plane {
                             normal_axis: Axis::Y,

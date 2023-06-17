@@ -75,12 +75,12 @@ fn child_elements(element: &Element) -> impl Iterator<Item = &Element> {
 }
 
 fn parse_camera(element: &Element) -> Result<Camera> {
-    let mut camera = Camera {
-        position: glm::vec4(5.0, 5.0, 5.0, 1.0),
-        up: glm::vec4(0.0, 1.0, 0.0, 0.0),
-        look: glm::vec4(-1.0, -1.0, -1.0, 0.0),
-        height_angle: glm::radians(45.0),
-    };
+    let mut camera = Camera::new(
+        glm::vec4(5.0, 5.0, 5.0, 1.0),
+        glm::vec4(0.0, 1.0, 0.0, 0.0),
+        glm::vec4(-1.0, -1.0, -1.0, 0.0),
+        glm::radians(45.0),
+    );
 
     let mut look_found = false;
     let mut focus_found = false;
@@ -115,6 +115,10 @@ fn parse_camera(element: &Element) -> Result<Camera> {
     if focus_found {
         camera.look = camera.look - camera.position;
     }
+
+    // Ensure that the inverse view matrix has been calculated using the most up-to-date position/look/up
+    camera.inverse_view_matrix =
+        Camera::calculate_inverse_view_matrix(camera.position, camera.look, camera.up);
 
     Ok(camera)
 }

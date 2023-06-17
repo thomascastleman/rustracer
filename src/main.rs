@@ -40,26 +40,30 @@ fn render(scene: &Scene, config: &Config) -> RgbImage {
             let y = (config.height - 1 - row) as f32 / config.height as f32 - 0.5;
             let x = col as f32 / config.width as f32 - 0.5;
 
-            let eye = glm::Vec4::zero();
+            let eye = glm::vec4(0.0, 0.0, 0.0, 1.0);
             let direction = glm::normalize(glm::vec4(
-                viewplane_width * x as f32,
-                viewplane_height * y as f32,
+                viewplane_width * x,
+                viewplane_height * y,
                 -1.0,
                 0.0,
             ));
-            let ray = Ray::new(eye, direction);
+            let camera_ray = Ray::new(eye, direction);
+            let world_ray = camera_ray.transform(&scene.camera.inverse_view_matrix, false);
 
-            for shape in &scene.shapes {}
+            let closest_intersection = scene
+                .shapes
+                .iter()
+                .flat_map(|shape| shape.intersect(&world_ray))
+                .min();
 
-            output_image.put_pixel(
-                col,
-                row,
-                Rgb([
-                    255,
-                    (col % 255).try_into().unwrap(),
-                    (row % 255).try_into().unwrap(),
-                ]),
-            );
+            let color = if let Some(intersection) = closest_intersection {
+                let normal = glm::normalize(intersection.component_intersection.normal) * 255.0;
+                Rgb([normal.x as u8, normal.y as u8, normal.z as u8])
+            } else {
+                Rgb([0, 0, 0])
+            };
+
+            output_image.put_pixel(col, row, color);
         }
     }
 
@@ -71,8 +75,8 @@ fn main() {
     let tree_scene = scene::TreeScene::parse(&config.scene, &config.textures).unwrap();
     let scene = Scene::from(tree_scene);
 
+    println!("{:#?}", scene);
+
     let output_image = render(&scene, &config);
     output_image.save(&config.output).unwrap();
-
-    println!("{:#?}", scene);
 }
