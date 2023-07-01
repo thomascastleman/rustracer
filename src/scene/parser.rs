@@ -299,7 +299,7 @@ fn parse_transblock(
                     .transformations
                     .push(Transformation::Rotate(
                         parse_vec3(child, ("x", "y", "z"))?,
-                        parse_attribute(child, "angle")?,
+                        glm::radians(parse_attribute(child, "angle")?),
                     ));
             }
             "scale" => {

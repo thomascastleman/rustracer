@@ -6,6 +6,8 @@ use crate::{
 };
 use image::Rgb;
 
+const SHADOW_OFFSET: f32 = 0.001;
+
 pub fn phong(scene: &Scene, config: &Config, intersection: &Intersection, ray: &Ray) -> glm::Vec4 {
     let mut illumination = glm::vec4(0.0, 0.0, 0.0, 1.0);
 
@@ -14,7 +16,7 @@ pub fn phong(scene: &Scene, config: &Config, intersection: &Intersection, ray: &
         illumination + intersection.material.ambient * scene.global_lighting_coefficients.ka;
 
     let intersection_point = ray.at(intersection.component_intersection.t);
-    let normal = glm::normalize(intersection.component_intersection.normal);
+    let normal = intersection.component_intersection.normal;
     let intersection_to_camera = glm::normalize(-ray.direction);
 
     scene
@@ -93,7 +95,7 @@ impl Light {
 
     fn is_visible(&self, point: &glm::Vec4, shapes: &[Shape]) -> bool {
         let to_point = self.direction_to_point(point);
-        let point_to_light_ray = Ray::new(*point, -to_point);
+        let point_to_light_ray = Ray::new(*point + (-to_point * SHADOW_OFFSET), -to_point);
         let distance = self.distance_to_point(point);
 
         // The point is visible to the light if a ray from the point to the light

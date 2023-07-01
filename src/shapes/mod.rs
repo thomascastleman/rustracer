@@ -58,6 +58,7 @@ pub struct Primitive {
 impl Primitive {
     fn intersect(&self, object_space_ray: &Ray) -> Option<ComponentIntersection> {
         let mut intersections: Vec<ComponentIntersection> = Vec::new();
+
         for component in &self.components {
             let object_intersection: Option<ComponentIntersection> =
                 component.intersect(object_space_ray);
@@ -105,10 +106,24 @@ impl Shape {
     }
 
     pub fn intersect(&self, ray: &Ray) -> Option<Intersection> {
-        let object_space_ray = ray.to_object_space(&self.ctm);
+        let inverse_ctm = glm::inverse(&self.ctm);
+        let object_space_ray = ray.to_object_space(&inverse_ctm);
+
+        let mut component_intersection = self.primitive.intersect(&object_space_ray)?;
+
+        let four_ctm_vec3s = self.ctm.as_array().map(|v| v.truncate(3));
+        let three_ctm_vec3s = [four_ctm_vec3s[0], four_ctm_vec3s[1], four_ctm_vec3s[2]];
+        let ctm_mat3 = glm::Mat3::from_array(&three_ctm_vec3s);
+        let ctm_mat3_transpose = glm::transpose(ctm_mat3);
+        let normal_transform = glm::inverse(&ctm_mat3_transpose);
+        let world_normal =
+            glm::normalize(normal_transform * component_intersection.normal.truncate(3))
+                .extend(0.0);
+
+        component_intersection.normal = world_normal;
 
         Some(Intersection {
-            component_intersection: self.primitive.intersect(&object_space_ray)?,
+            component_intersection,
             material: &self.material,
         })
     }

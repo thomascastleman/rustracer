@@ -87,6 +87,9 @@ fn render(scene: &Scene, config: &Config) -> RgbImage {
 fn main() {
     let config = Config::from_args();
     let tree_scene = scene::TreeScene::parse(&config.scene, &config.textures).unwrap();
+
+    println!("{:#?}", tree_scene);
+
     let scene = Scene::from(tree_scene);
 
     println!("{:#?}", scene);
