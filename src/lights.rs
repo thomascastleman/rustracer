@@ -6,7 +6,7 @@ use crate::{
 };
 use image::Rgb;
 
-const SHADOW_OFFSET: f32 = 0.001;
+pub const SELF_INTERSECT_OFFSET: f32 = 0.001;
 
 pub fn phong(scene: &Scene, config: &Config, intersection: &Intersection, ray: &Ray) -> glm::Vec4 {
     let mut illumination = glm::vec4(0.0, 0.0, 0.0, 1.0);
@@ -77,7 +77,7 @@ fn attenuation_over_distance(coefficients: &glm::Vec3, distance: f32) -> f32 {
     1f32.min(1.0 / (coefficients.z * distance.powi(2) + coefficients.y * distance + coefficients.x))
 }
 
-fn reflect_around(in_direction: &glm::Vec4, reflection_axis: &glm::Vec4) -> glm::Vec4 {
+pub fn reflect_around(in_direction: &glm::Vec4, reflection_axis: &glm::Vec4) -> glm::Vec4 {
     glm::normalize(
         *in_direction - *reflection_axis * 2.0 * glm::dot(*in_direction, *reflection_axis),
     )
@@ -95,7 +95,7 @@ impl Light {
 
     fn is_visible(&self, point: &glm::Vec4, shapes: &[Shape]) -> bool {
         let to_point = self.direction_to_point(point);
-        let point_to_light_ray = Ray::new(*point + (-to_point * SHADOW_OFFSET), -to_point);
+        let point_to_light_ray = Ray::new(*point + (-to_point * SELF_INTERSECT_OFFSET), -to_point);
         let distance = self.distance_to_point(point);
 
         // The point is visible to the light if a ray from the point to the light
