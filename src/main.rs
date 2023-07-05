@@ -94,6 +94,15 @@ impl RayTracer {
     }
 
     fn render(&self) -> RgbImage {
+        let progress_bar =
+            indicatif::ProgressBar::new((self.config.width * self.config.height) as u64);
+        progress_bar.set_style(
+            indicatif::ProgressStyle::with_template(
+                "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7} / {len:7} pixels",
+            )
+            .unwrap(),
+        );
+
         let viewplane_height = 2.0 * (self.scene.camera.height_angle / 2.0).tan(); // depth = 1
         let viewplane_width =
             viewplane_height * (self.config.width as f32 / self.config.height as f32);
@@ -115,8 +124,12 @@ impl RayTracer {
                 let camera_ray = Ray::new(eye, direction);
                 let world_ray = camera_ray.transform(&self.scene.camera.inverse_view_matrix, false);
                 output_image.put_pixel(col, row, lights::to_rgba(&self.trace_ray(&world_ray, 0)));
+
+                progress_bar.inc(1);
             }
         }
+
+        progress_bar.finish();
 
         output_image
     }
