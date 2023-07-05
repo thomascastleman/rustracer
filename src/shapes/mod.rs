@@ -79,7 +79,7 @@ pub struct Shape {
     /// Reference to the primitive shape that this is an instance of.
     primitive: Rc<Primitive>,
     /// Material of this particular shape.
-    material: Material,
+    pub material: Material,
     /// The cumulative transformation matrix for this shape.
     ctm: glm::Mat4,
 }

@@ -135,16 +135,23 @@ impl RayTracer {
     }
 }
 
-fn main() {
+fn run() -> anyhow::Result<()> {
     let config = Config::from_args();
-    let tree_scene = scene::TreeScene::parse(&config.scene, &config.textures).unwrap();
+    let tree_scene = scene::TreeScene::parse(&config.scene, &config.textures)?;
 
     println!("{:#?}", tree_scene);
 
-    let scene = Scene::from(tree_scene);
+    let scene = Scene::try_from_tree_scene(tree_scene, &config)?;
 
     println!("{:#?}", scene);
 
     let raytracer = RayTracer::new(scene, config);
-    raytracer.render().save(&raytracer.config.output).unwrap();
+    raytracer.render().save(&raytracer.config.output)?;
+    Ok(())
+}
+
+fn main() {
+    if let Err(e) = run() {
+        eprintln!("Error: {}", e);
+    }
 }

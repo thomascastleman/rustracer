@@ -2,8 +2,12 @@ use crate::shapes::{
     Axis, Circle, ConeBody, CylinderBody, Plane, Primitive, PrimitiveComponent, Shape, Sphere,
     Square,
 };
+use crate::Config;
+use anyhow::Result;
+use image::RgbImage;
 use num_traits::identities::One;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -89,10 +93,10 @@ impl Camera {
 
 #[derive(Debug, Clone)]
 pub struct Texture {
-    filename: PathBuf,
-    repeat_u: f32,
-    repeat_v: f32,
-    blend: f32,
+    pub filename: PathBuf,
+    pub repeat_u: f32,
+    pub repeat_v: f32,
+    pub blend: f32,
 }
 
 #[derive(Debug, Clone)]
@@ -158,6 +162,7 @@ pub struct Scene {
     pub lights: Vec<Light>,
     pub shapes: Vec<Shape>,
     primitives: Primitives,
+    textures: HashMap<PathBuf, RgbImage>,
 }
 
 impl Scene {
@@ -181,10 +186,8 @@ impl Scene {
             Scene::traverse_tree_scene(child.borrow(), primitives, shapes, ctm);
         }
     }
-}
 
-impl From<TreeScene> for Scene {
-    fn from(tree_scene: TreeScene) -> Self {
+    pub fn try_from_tree_scene(tree_scene: TreeScene, config: &Config) -> Result<Self> {
         let primitives = Primitives::new();
 
         // Traverse the scene's node tree and construct shapes from it, using
@@ -197,13 +200,24 @@ impl From<TreeScene> for Scene {
             glm::Mat4::one(),
         );
 
-        Scene {
+        let mut textures = HashMap::new();
+        for shape in &shapes {
+            if let Some(ref texture) = shape.material.texture {
+                if !textures.contains_key(&texture.filename) {
+                    let texture_image = image::open(&texture.filename)?.to_rgb8();
+                    textures.insert(texture.filename.clone(), texture_image);
+                }
+            }
+        }
+
+        Ok(Scene {
             global_lighting_coefficients: tree_scene.global_lighting_coefficients,
             camera: tree_scene.camera,
             lights: tree_scene.lights,
             shapes,
             primitives,
-        }
+            textures,
+        })
     }
 }
 
