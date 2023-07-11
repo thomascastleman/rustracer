@@ -134,7 +134,7 @@ impl RayTracer {
 
                 let camera_ray = Ray::new(eye, direction);
                 let world_ray = camera_ray.transform(&self.scene.camera.inverse_view_matrix, false);
-                output_image.put_pixel(col, row, lights::to_rgba(&self.trace_ray(&world_ray, 0)));
+                output_image.put_pixel(col, row, lights::to_rgb(&self.trace_ray(&world_ray, 0)));
 
                 progress_bar.inc(1);
             }

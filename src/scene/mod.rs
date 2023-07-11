@@ -138,7 +138,7 @@ pub struct Scene {
     pub camera: Camera,
     pub lights: Vec<Light>,
     pub shapes: Vec<Shape>,
-    textures: HashMap<PathBuf, RgbImage>,
+    pub textures: HashMap<PathBuf, RgbImage>,
 }
 
 impl Scene {

@@ -1,4 +1,10 @@
-use crate::{intersection::Intersection, raytracer::Ray, scene::Scene, shape::Shape, Config};
+use crate::{
+    intersection::Intersection,
+    raytracer::Ray,
+    scene::{Scene, Texture},
+    shape::Shape,
+    Config,
+};
 use image::Rgb;
 
 /// Offset from a point of intersecting that a recursive ray must be fired from
@@ -33,10 +39,21 @@ pub fn phong(scene: &Scene, config: &Config, intersection: &Intersection, ray: &
 
             let mut diffuse = glm::vec4(1.0, 1.0, 1.0, 1.0) * diffuse_angle;
 
-            // TODO: Texture mapping here
+            if config.enable_texture && intersection.material.texture.is_some() {
+                let texture = intersection.material.texture.as_ref().unwrap();
+                let texture_color =
+                    uv_lookup(intersection.component_intersection.uv, texture, scene);
 
-            diffuse =
-                diffuse * scene.global_lighting_coefficients.kd * intersection.material.diffuse;
+                diffuse = diffuse
+                    * ((intersection.material.diffuse
+                        * (1.0 - texture.blend)
+                        * scene.global_lighting_coefficients.kd)
+                        + (texture_color * texture.blend));
+            } else {
+                diffuse =
+                    diffuse * scene.global_lighting_coefficients.kd * intersection.material.diffuse;
+            }
+
             let mirror_direction = reflect_around(&light_to_intersection, &normal);
             let mut specular_angle = glm::dot(mirror_direction, intersection_to_camera);
 
@@ -61,12 +78,25 @@ fn clamp_intensity(intensity: f32) -> u8 {
     (255.0 * 1f32.min(0f32.max(intensity))) as u8
 }
 
-pub fn to_rgba(intensity: &glm::Vec4) -> Rgb<u8> {
+pub fn to_rgb(intensity: &glm::Vec4) -> Rgb<u8> {
     Rgb([
         clamp_intensity(intensity.x),
         clamp_intensity(intensity.y),
         clamp_intensity(intensity.z),
     ])
+}
+
+fn int_to_intensity(rgb_value: u8) -> f32 {
+    rgb_value as f32 / 255.0
+}
+
+fn to_intensity(rgb: &Rgb<u8>) -> glm::Vec4 {
+    glm::vec4(
+        int_to_intensity(rgb[0]),
+        int_to_intensity(rgb[1]),
+        int_to_intensity(rgb[2]),
+        1.0,
+    )
 }
 
 // Calculates the attenuation of a light with the given attenuation function coefficients over the given distance
@@ -78,6 +108,22 @@ pub fn reflect_around(in_direction: &glm::Vec4, reflection_axis: &glm::Vec4) -> 
     glm::normalize(
         *in_direction - *reflection_axis * 2.0 * glm::dot(*in_direction, *reflection_axis),
     )
+}
+
+/// Converts a UV coordinate to the value of a texture at that coordinate.
+fn uv_lookup(uv: (f32, f32), texture: &Texture, scene: &Scene) -> glm::Vec4 {
+    let texture_image = scene
+        .textures
+        .get(&texture.filename)
+        .expect("Tried to access unloaded texture");
+
+    let (u, v) = uv;
+    let column = (u * texture_image.width() as f32 * texture.repeat_u).floor() as u32
+        % texture_image.width();
+    let row = ((1.0 - v) * texture_image.height() as f32 * texture.repeat_v).floor() as u32
+        % texture_image.height();
+
+    to_intensity(texture_image.get_pixel(column, row))
 }
 
 #[derive(Debug)]

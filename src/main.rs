@@ -35,18 +35,16 @@ pub struct Config {
 
     #[structopt(long)]
     enable_reflections: bool,
+
+    #[structopt(long)]
+    enable_texture: bool,
 }
 
 /// Parses the CLI arguments, invokes the raytracer, and saves the output image, propagating errors.
 fn run() -> Result<()> {
     let config = Config::from_args();
     let tree_scene = scene::TreeScene::parse(&config.scene, &config.textures)?;
-
-    println!("{:#?}", tree_scene);
-
     let scene = Scene::try_from(tree_scene)?;
-
-    println!("{:#?}", scene);
 
     let output_image_path = config.output.clone();
     let raytracer = RayTracer::new(scene, config);
