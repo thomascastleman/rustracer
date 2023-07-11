@@ -1,50 +1,7 @@
-use crate::intersection::{ComponentIntersection, Intersection};
-use crate::scene::{Material, ParsedShape, PrimitiveType, Primitives};
+use crate::intersection::ComponentIntersection;
+use crate::raytracer::Ray;
 use std::f32::consts::PI;
-use std::rc::Rc;
 use std::slice::Iter;
-
-#[derive(Debug)]
-pub struct Ray {
-    pub position: glm::Vec4,
-    pub direction: glm::Vec4,
-}
-
-impl Ray {
-    /// Constructs a new Ray from the given components.
-    pub fn new(position: glm::Vec4, direction: glm::Vec4) -> Self {
-        Self {
-            position,
-            direction,
-        }
-    }
-
-    pub fn transform(&self, transformation: &glm::Mat4, normalize_direction: bool) -> Ray {
-        let position = transformation.mul_v(&self.position);
-        let mut direction = transformation.mul_v(&self.direction);
-
-        if normalize_direction {
-            direction = glm::normalize(direction);
-        }
-
-        Ray {
-            position,
-            direction,
-        }
-    }
-
-    pub fn to_object_space(&self, transformation: &glm::Mat4) -> Ray {
-        self.transform(transformation, false)
-    }
-
-    pub fn to_world_space(&self, transformation: &glm::Mat4) -> Ray {
-        self.transform(transformation, true)
-    }
-
-    pub fn at(&self, t: f32) -> glm::Vec4 {
-        self.position + self.direction * t
-    }
-}
 
 /// A Primitive is a object-space version of a Shape, which represents the
 /// geometry of that shape. Primitives are composed of components (for instance
@@ -56,7 +13,7 @@ pub struct Primitive {
 }
 
 impl Primitive {
-    fn intersect(&self, object_space_ray: &Ray) -> Option<ComponentIntersection> {
+    pub fn intersect(&self, object_space_ray: &Ray) -> Option<ComponentIntersection> {
         let mut intersections: Vec<ComponentIntersection> = Vec::new();
 
         for component in &self.components {
@@ -69,63 +26,6 @@ impl Primitive {
         }
 
         intersections.into_iter().min()
-    }
-}
-
-/// A Shape represents a particular instance of a Primitive, which has been
-/// transformed and has a material (which affects lighting).
-#[derive(Debug)]
-pub struct Shape {
-    /// Reference to the primitive shape that this is an instance of.
-    primitive: Rc<Primitive>,
-    /// Material of this particular shape.
-    pub material: Material,
-    /// The cumulative transformation matrix for this shape.
-    ctm: glm::Mat4,
-}
-
-impl Shape {
-    pub fn from_parsed_shape(
-        parsed_shape: &ParsedShape,
-        primitives: &Primitives,
-        ctm: glm::Mat4,
-    ) -> Self {
-        let primitive = Rc::clone(match parsed_shape.primitive_type {
-            PrimitiveType::Cone => &primitives.cone,
-            PrimitiveType::Cube => &primitives.cube,
-            PrimitiveType::Sphere => &primitives.sphere,
-            PrimitiveType::Cylinder => &primitives.cylinder,
-        });
-
-        // TODO: Instead of cloning the material here, we could have it be multiply-owned (Rc)
-        Self {
-            primitive,
-            material: parsed_shape.material.clone(),
-            ctm,
-        }
-    }
-
-    pub fn intersect(&self, ray: &Ray) -> Option<Intersection> {
-        let inverse_ctm = glm::inverse(&self.ctm);
-        let object_space_ray = ray.to_object_space(&inverse_ctm);
-
-        let mut component_intersection = self.primitive.intersect(&object_space_ray)?;
-
-        let four_ctm_vec3s = self.ctm.as_array().map(|v| v.truncate(3));
-        let three_ctm_vec3s = [four_ctm_vec3s[0], four_ctm_vec3s[1], four_ctm_vec3s[2]];
-        let ctm_mat3 = glm::Mat3::from_array(&three_ctm_vec3s);
-        let ctm_mat3_transpose = glm::transpose(ctm_mat3);
-        let normal_transform = glm::inverse(&ctm_mat3_transpose);
-        let world_normal =
-            glm::normalize(normal_transform * component_intersection.normal.truncate(3))
-                .extend(0.0);
-
-        component_intersection.normal = world_normal;
-
-        Some(Intersection {
-            component_intersection,
-            material: &self.material,
-        })
     }
 }
 

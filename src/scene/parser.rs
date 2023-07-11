@@ -1,5 +1,6 @@
 use super::{GlobalLightingCoefficients, Material, Node, ParsedShape, PrimitiveType, Texture};
-use crate::scene::{Camera, Light, Transformation, TreeScene};
+use crate::lights::Light;
+use crate::scene::{Camera, Transformation, TreeScene};
 use anyhow::Result;
 use anyhow::{anyhow, bail};
 use std::cell::RefCell;
@@ -46,7 +47,7 @@ fn parse_global_lighting_coefficients(element: &Element) -> Result<GlobalLightin
         ks: 0.5,
     };
 
-    for child in child_elements(&element) {
+    for child in child_elements(element) {
         match child.name.as_str() {
             "ambientcoeff" => {
                 global_lighting_coefficients.ka = parse_attribute(child, "v")?;
@@ -177,7 +178,7 @@ fn parse_light(element: &Element) -> Result<Light> {
     let default_attenuation = glm::vec3(1.0, 0.0, 0.0);
     let default_direction = glm::vec4(0.0, 0.0, 0.0, 0.0);
 
-    match light_type.as_ref().map(|s| s.as_str()) {
+    match light_type.as_deref() {
         Some("directional") => {
             if position.is_some() {
                 bail!("Directional light cannot have position");
@@ -266,7 +267,10 @@ fn parse_object(element: &Element, objects: &mut ObjectMap, textures: &Path) -> 
 
     let current_node = Default::default();
 
-    if let Some(_) = objects.insert(object_name.clone(), Rc::clone(&current_node)) {
+    if objects
+        .insert(object_name.clone(), Rc::clone(&current_node))
+        .is_some()
+    {
         bail!(
             "Cannot have two objects with the same name: {}",
             object_name

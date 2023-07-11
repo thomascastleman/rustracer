@@ -1,9 +1,8 @@
-use crate::shapes::{
-    Axis, Circle, ConeBody, CylinderBody, Plane, Primitive, PrimitiveComponent, Shape, Sphere,
-    Square,
+use crate::lights::Light;
+use crate::primitive::{
+    Axis, Circle, ConeBody, CylinderBody, Plane, Primitive, PrimitiveComponent, Sphere, Square,
 };
-use crate::Config;
-use anyhow::Result;
+use crate::shape::Shape;
 use image::RgbImage;
 use num_traits::identities::One;
 use std::cell::RefCell;
@@ -12,28 +11,6 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 mod parser;
-
-#[derive(Debug)]
-pub enum Light {
-    Point {
-        color: glm::Vector4<f32>,
-        position: glm::Vector4<f32>,
-        attenuation: glm::Vector3<f32>,
-    },
-    Directional {
-        color: glm::Vector4<f32>,
-        direction: glm::Vector4<f32>,
-        attenuation: glm::Vector3<f32>,
-    },
-    Spot {
-        color: glm::Vector4<f32>,
-        position: glm::Vector4<f32>,
-        direction: glm::Vector4<f32>,
-        attenuation: glm::Vector3<f32>,
-        penumbra: f32,
-        angle: f32,
-    },
-}
 
 #[derive(Debug)]
 pub struct GlobalLightingCoefficients {
@@ -161,7 +138,6 @@ pub struct Scene {
     pub camera: Camera,
     pub lights: Vec<Light>,
     pub shapes: Vec<Shape>,
-    primitives: Primitives,
     textures: HashMap<PathBuf, RgbImage>,
 }
 
@@ -186,8 +162,12 @@ impl Scene {
             Scene::traverse_tree_scene(child.borrow(), primitives, shapes, ctm);
         }
     }
+}
 
-    pub fn try_from_tree_scene(tree_scene: TreeScene, config: &Config) -> Result<Self> {
+impl TryFrom<TreeScene> for Scene {
+    type Error = anyhow::Error;
+
+    fn try_from(tree_scene: TreeScene) -> std::result::Result<Self, Self::Error> {
         let primitives = Primitives::new();
 
         // Traverse the scene's node tree and construct shapes from it, using
@@ -215,7 +195,6 @@ impl Scene {
             camera: tree_scene.camera,
             lights: tree_scene.lights,
             shapes,
-            primitives,
             textures,
         })
     }

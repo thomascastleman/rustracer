@@ -1,11 +1,8 @@
-use crate::{
-    intersection::Intersection,
-    scene::{Light, Scene},
-    shapes::{Ray, Shape},
-    Config,
-};
+use crate::{intersection::Intersection, raytracer::Ray, scene::Scene, shape::Shape, Config};
 use image::Rgb;
 
+/// Offset from a point of intersecting that a recursive ray must be fired from
+/// in order to avoid unwanted intersections with the intersected object itself.
 pub const SELF_INTERSECT_OFFSET: f32 = 0.001;
 
 pub fn phong(scene: &Scene, config: &Config, intersection: &Intersection, ray: &Ray) -> glm::Vec4 {
@@ -81,6 +78,28 @@ pub fn reflect_around(in_direction: &glm::Vec4, reflection_axis: &glm::Vec4) -> 
     glm::normalize(
         *in_direction - *reflection_axis * 2.0 * glm::dot(*in_direction, *reflection_axis),
     )
+}
+
+#[derive(Debug)]
+pub enum Light {
+    Point {
+        color: glm::Vector4<f32>,
+        position: glm::Vector4<f32>,
+        attenuation: glm::Vector3<f32>,
+    },
+    Directional {
+        color: glm::Vector4<f32>,
+        direction: glm::Vector4<f32>,
+        attenuation: glm::Vector3<f32>,
+    },
+    Spot {
+        color: glm::Vector4<f32>,
+        position: glm::Vector4<f32>,
+        direction: glm::Vector4<f32>,
+        attenuation: glm::Vector3<f32>,
+        penumbra: f32,
+        angle: f32,
+    },
 }
 
 impl Light {
