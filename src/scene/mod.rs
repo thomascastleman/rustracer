@@ -9,6 +9,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
 
 mod parser;
 
@@ -202,15 +203,15 @@ impl TryFrom<TreeScene> for Scene {
 
 #[derive(Debug)]
 pub struct Primitives {
-    pub cube: Rc<Primitive>,
-    pub sphere: Rc<Primitive>,
-    pub cylinder: Rc<Primitive>,
-    pub cone: Rc<Primitive>,
+    pub cube: Arc<Primitive>,
+    pub sphere: Arc<Primitive>,
+    pub cylinder: Arc<Primitive>,
+    pub cone: Arc<Primitive>,
 }
 
 impl Primitives {
     fn new() -> Self {
-        let mut cube_components: Vec<Box<dyn PrimitiveComponent>> = Vec::new();
+        let mut cube_components: Vec<Box<dyn PrimitiveComponent + Send + Sync>> = Vec::new();
         for &normal_axis in Axis::iterator() {
             for elevation in [-0.5, 0.5] {
                 cube_components.push(Box::new(Square {
@@ -223,13 +224,13 @@ impl Primitives {
         }
 
         Self {
-            cube: Rc::new(Primitive {
+            cube: Arc::new(Primitive {
                 components: cube_components,
             }),
-            sphere: Rc::new(Primitive {
+            sphere: Arc::new(Primitive {
                 components: vec![Box::new(Sphere {})],
             }),
-            cylinder: Rc::new(Primitive {
+            cylinder: Arc::new(Primitive {
                 components: vec![
                     Box::new(CylinderBody {}),
                     Box::new(Circle {
@@ -246,7 +247,7 @@ impl Primitives {
                     }),
                 ],
             }),
-            cone: Rc::new(Primitive {
+            cone: Arc::new(Primitive {
                 components: vec![
                     Box::new(ConeBody {}),
                     Box::new(Circle {

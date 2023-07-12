@@ -2,14 +2,14 @@ use crate::intersection::Intersection;
 use crate::primitive::Primitive;
 use crate::raytracer::Ray;
 use crate::scene::{Material, ParsedShape, PrimitiveType, Primitives};
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// A Shape represents a particular instance of a Primitive, which has been
 /// transformed and has a material (which affects lighting).
 #[derive(Debug)]
 pub struct Shape {
     /// Reference to the primitive shape that this is an instance of.
-    primitive: Rc<Primitive>,
+    primitive: Arc<Primitive>,
     /// Material of this particular shape.
     pub material: Material,
     /// The cumulative transformation matrix for this shape.
@@ -22,7 +22,7 @@ impl Shape {
         primitives: &Primitives,
         ctm: glm::Mat4,
     ) -> Self {
-        let primitive = Rc::clone(match parsed_shape.primitive_type {
+        let primitive = Arc::clone(match parsed_shape.primitive_type {
             PrimitiveType::Cone => &primitives.cone,
             PrimitiveType::Cube => &primitives.cube,
             PrimitiveType::Sphere => &primitives.sphere,

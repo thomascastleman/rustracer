@@ -9,7 +9,7 @@ use std::slice::Iter;
 /// kind of shape share a Primitive.
 #[derive(Debug)]
 pub struct Primitive {
-    pub components: Vec<Box<dyn PrimitiveComponent>>,
+    pub components: Vec<Box<dyn PrimitiveComponent + Send + Sync>>,
 }
 
 impl Primitive {

@@ -1,4 +1,4 @@
 - [x] Texture mapping
 - [ ] Super sampling
-- [ ] Parallelization
+- [x] Parallelization
 - [ ] Benchmarking

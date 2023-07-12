@@ -38,6 +38,9 @@ pub struct Config {
 
     #[structopt(long)]
     enable_texture: bool,
+
+    #[structopt(long)]
+    enable_parallelism: bool,
 }
 
 /// Parses the CLI arguments, invokes the raytracer, and saves the output image, propagating errors.
