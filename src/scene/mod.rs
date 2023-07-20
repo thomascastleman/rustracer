@@ -1,3 +1,5 @@
+//! Module for representation of scenes, as well as the parser that converts XML into this representation.
+
 use crate::lights::Light;
 use crate::primitive::{
     Axis, Circle, ConeBody, CylinderBody, Plane, Primitive, PrimitiveComponent, Sphere, Square,

@@ -1,3 +1,5 @@
+//! Provides the [`Shape`] type, which is a high-level representation of objects in scenes.
+
 use crate::intersection::Intersection;
 use crate::primitive::Primitive;
 use crate::raytracer::Ray;
@@ -17,6 +19,7 @@ pub struct Shape {
 }
 
 impl Shape {
+    /// Convert information about a shape that has been parsed from the scenefile into a [`Shape`].
     pub fn from_parsed_shape(
         parsed_shape: &ParsedShape,
         primitives: &Primitives,
@@ -37,6 +40,8 @@ impl Shape {
         }
     }
 
+    /// Determine if the given ray intersects with this shape, returning information about
+    /// where the intersection occurs and what kind of material properties are implicated if so.
     pub fn intersect(&self, ray: &Ray) -> Option<Intersection> {
         let inverse_ctm = glm::inverse(&self.ctm);
         let object_space_ray = ray.to_object_space(&inverse_ctm);

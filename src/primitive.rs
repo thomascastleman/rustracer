@@ -1,3 +1,5 @@
+//! Lower-level representation of objects in scenes.
+
 use crate::intersection::ComponentIntersection;
 use crate::raytracer::Ray;
 use std::f32::consts::PI;

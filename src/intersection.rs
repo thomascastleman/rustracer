@@ -1,6 +1,10 @@
+//! Types for representing an intersection between a ray and part of the scene.
+
 use crate::scene::Material;
 use std::cmp::Ordering;
 
+/// Represents an intersection between a ray and a component of a primitive (e.g.,
+/// one of the planes of a cube, or the body of a cone).
 #[derive(Debug)]
 pub struct ComponentIntersection {
     pub t: f32,
@@ -28,6 +32,8 @@ impl PartialEq for ComponentIntersection {
 
 impl Eq for ComponentIntersection {}
 
+/// Wrapper for [`ComponentIntersection`] that also has information about the
+/// material that is being intersected.
 #[derive(Debug)]
 pub struct Intersection<'a> {
     pub component_intersection: ComponentIntersection,

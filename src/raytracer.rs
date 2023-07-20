@@ -1,3 +1,5 @@
+//! Core raytracing functionality.
+
 use crate::lights;
 use crate::scene::Scene;
 use crate::Config;
@@ -10,6 +12,8 @@ use std::sync::mpsc::channel;
 /// computing illumination for reflective materials.
 const MAX_REFLECTION_DEPTH: u8 = 4;
 
+/// A ray is like a beam that originates from a point and travels through the scene,
+/// in a direction, possibly intersecting with an object(s) along its path.
 #[derive(Debug)]
 pub struct Ray {
     pub position: glm::Vec4,
@@ -25,6 +29,8 @@ impl Ray {
         }
     }
 
+    /// Transform the ray by the given transformation matrix. If `normalize_direction`
+    /// is set, the new ray's `direction` will be guaranteed to be a unit vector.
     pub fn transform(&self, transformation: &glm::Mat4, normalize_direction: bool) -> Ray {
         let position = transformation.mul_v(&self.position);
         let mut direction = transformation.mul_v(&self.direction);
@@ -39,25 +45,33 @@ impl Ray {
         }
     }
 
+    /// Convert a ray to object space by applying the given matrix and not normalizing the ray direction.
     pub fn to_object_space(&self, transformation: &glm::Mat4) -> Ray {
         self.transform(transformation, false)
     }
 
+    /// Evaluate the ray at a given t-value, which indicates a point on the ray
+    /// by acting as a scalar on the ray's direction vector.
     pub fn at(&self, t: f32) -> glm::Vec4 {
         self.position + self.direction * t
     }
 }
 
+/// A raytracer renders a given scene under a configuration.
 pub struct RayTracer {
     scene: Scene,
     config: Config,
 }
 
 impl RayTracer {
+    /// Constructs a new `RayTracer`.
     pub fn new(scene: Scene, config: Config) -> Self {
         Self { scene, config }
     }
 
+    /// Trace the given ray into the raytracer's scene by determining if it intersects
+    /// any objects, and if so, calculating what intensity contribution this ray makes.
+    /// This may involve tracing further rays out from the point of intersection.
     fn trace_ray(&self, ray: &Ray, depth: u8) -> glm::Vec4 {
         // Look for the shape intersection with the minimum t-value (indicates closeness to the ray origin)
         let closest_intersection = &self
@@ -102,6 +116,7 @@ impl RayTracer {
         }
     }
 
+    /// Produces an image by rendering the raytracer's scene.
     pub fn render(&self) -> RgbImage {
         let progress_bar =
             indicatif::ProgressBar::new((self.config.width * self.config.height) as u64);

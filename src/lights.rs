@@ -1,3 +1,6 @@
+//! Lighting, which supports three types of light sources (directional, point, and
+//! spot lights), and also includes texture mapping.
+
 use crate::{
     intersection::Intersection,
     raytracer::Ray,
@@ -11,6 +14,7 @@ use image::Rgb;
 /// in order to avoid unwanted intersections with the intersected object itself.
 pub const SELF_INTERSECT_OFFSET: f32 = 0.001;
 
+/// Calculates the Phong illumination as a vector of intensity values for a given point of intersection.
 pub fn phong(scene: &Scene, config: &Config, intersection: &Intersection, ray: &Ray) -> glm::Vec4 {
     let mut illumination = glm::vec4(0.0, 0.0, 0.0, 1.0);
 
@@ -74,10 +78,13 @@ pub fn phong(scene: &Scene, config: &Config, intersection: &Intersection, ray: &
         })
 }
 
+/// Scales an intensity value in the range 0.0-1.0 onto integers 0-255, and
+/// clamps any values outside that range to the min/max accordingly.
 fn clamp_intensity(intensity: f32) -> u8 {
     (255.0 * 1f32.min(0f32.max(intensity))) as u8
 }
 
+/// Converts a vector of intensity values to an RGB triple, clamping as needed.
 pub fn to_rgb(intensity: &glm::Vec4) -> Rgb<u8> {
     Rgb([
         clamp_intensity(intensity.x),
@@ -86,10 +93,12 @@ pub fn to_rgb(intensity: &glm::Vec4) -> Rgb<u8> {
     ])
 }
 
+/// Converts an RGB value (0-255) to an intensity between 0.0-1.0
 fn int_to_intensity(rgb_value: u8) -> f32 {
     rgb_value as f32 / 255.0
 }
 
+/// Converts an RGB triple to a vector of intensity.
 fn to_intensity(rgb: &Rgb<u8>) -> glm::Vec4 {
     glm::vec4(
         int_to_intensity(rgb[0]),
@@ -99,11 +108,12 @@ fn to_intensity(rgb: &Rgb<u8>) -> glm::Vec4 {
     )
 }
 
-// Calculates the attenuation of a light with the given attenuation function coefficients over the given distance
+/// Calculates the attenuation of a light with the given attenuation function coefficients over the given distance
 fn attenuation_over_distance(coefficients: &glm::Vec3, distance: f32) -> f32 {
     1f32.min(1.0 / (coefficients.z * distance.powi(2) + coefficients.y * distance + coefficients.x))
 }
 
+/// Calculates a vector reflected about an axis.
 pub fn reflect_around(in_direction: &glm::Vec4, reflection_axis: &glm::Vec4) -> glm::Vec4 {
     glm::normalize(
         *in_direction - *reflection_axis * 2.0 * glm::dot(*in_direction, *reflection_axis),
@@ -126,18 +136,22 @@ fn uv_lookup(uv: (f32, f32), texture: &Texture, scene: &Scene) -> glm::Vec4 {
     to_intensity(texture_image.get_pixel(column, row))
 }
 
+/// A light source.
 #[derive(Debug)]
 pub enum Light {
+    /// A light that emanates from a single point in space in all directions.
     Point {
         color: glm::Vector4<f32>,
         position: glm::Vector4<f32>,
         attenuation: glm::Vector3<f32>,
     },
+    /// A light that emanates in a given direction (from infinitely far away).
     Directional {
         color: glm::Vector4<f32>,
         direction: glm::Vector4<f32>,
         attenuation: glm::Vector3<f32>,
     },
+    /// A light that emanates in the shape of a cone from a point.
     Spot {
         color: glm::Vector4<f32>,
         position: glm::Vector4<f32>,
@@ -149,6 +163,8 @@ pub enum Light {
 }
 
 impl Light {
+    /// Finds the distance from the light source to the given point. Directional
+    /// lights do not have a position, so this returns an `Option`.
     fn distance_to_point(&self, point: &glm::Vec4) -> Option<f32> {
         match self {
             Light::Directional { .. } => None,
@@ -158,6 +174,16 @@ impl Light {
         }
     }
 
+    /// Computes a vector from the light to the given point.
+    fn direction_to_point(&self, point: &glm::Vec4) -> glm::Vec4 {
+        glm::normalize(match self {
+            Light::Directional { direction, .. } => *direction,
+            Light::Point { position, .. } | Light::Spot { position, .. } => *point - *position,
+        })
+    }
+
+    /// Determine if a given point is "visible" to the light source - i.e. if a ray
+    /// can be cast from the light to the point without intersecting any objects.
     fn is_visible(&self, point: &glm::Vec4, shapes: &[Shape]) -> bool {
         let to_point = self.direction_to_point(point);
         let point_to_light_ray = Ray::new(*point + (-to_point * SELF_INTERSECT_OFFSET), -to_point);
@@ -178,6 +204,9 @@ impl Light {
             == 0
     }
 
+    /// Determines the intensity of the light source at a given point. This can be affected
+    /// by attenuation over distance, or in the case of a spotlight, where the point is
+    /// in the light's cone of illumination.
     fn intensity_at(&self, point: &glm::Vec4) -> glm::Vec4 {
         let distance = self.distance_to_point(point);
         match self {
@@ -221,13 +250,5 @@ impl Light {
                 *color * attenuation * (1.0 - falloff)
             }
         }
-    }
-
-    /// Compute a vector from the light to the given point.
-    fn direction_to_point(&self, point: &glm::Vec4) -> glm::Vec4 {
-        glm::normalize(match self {
-            Light::Directional { direction, .. } => *direction,
-            Light::Point { position, .. } | Light::Spot { position, .. } => *point - *position,
-        })
     }
 }

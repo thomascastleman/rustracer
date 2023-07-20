@@ -1,3 +1,5 @@
+//! Parser for XML scenefiles.
+
 use super::{GlobalLightingCoefficients, Material, Node, ParsedShape, PrimitiveType, Texture};
 use crate::lights::Light;
 use crate::scene::{Camera, Transformation, TreeScene};
