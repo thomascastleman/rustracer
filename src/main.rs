@@ -50,12 +50,22 @@ pub struct Config {
 /// Parses the CLI arguments, invokes the raytracer, and saves the output image, propagating errors.
 fn run() -> Result<()> {
     let config = Config::from_args();
+
+    println!(
+        "Rendering {} as {}x{} image",
+        config.scene.display(),
+        config.width,
+        config.height
+    );
+
     let tree_scene = scene::TreeScene::parse(&config.scene, &config.textures)?;
     let scene = Scene::try_from(tree_scene)?;
 
     let output_image_path = config.output.clone();
     let raytracer = RayTracer::new(scene, config);
     raytracer.render().save(&output_image_path)?;
+
+    println!("Output saved as {}", output_image_path.display());
 
     Ok(())
 }

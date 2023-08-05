@@ -2,3 +2,32 @@
 - [ ] Super sampling
 - [x] Parallelization
 - [ ] Benchmarking
+
+# Profiling Notes
+
+First, install the [`flamegraph` tool](https://github.com/flamegraph-rs/flamegraph/tree/main#installation).
+
+You might also need to do:
+
+```
+sudo sysctl kernel.perf_event_paranoid=0
+```
+
+Example profiling command:
+
+```
+CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph -o ./profiling/take_forever_recursiveSpheres2.svg -- --width 1024 --height 768 --output ./output/take_forever_recursiveSpheres2.png --textures ~/Desktop/courses/1230/scenefiles --scene ~/Desktop/courses/1230/scenefiles/test_take_forever/recursiveSpheres2.xml  --enable-shadows --enable-reflections --enable-texture
+```
+
+See `profiling/` directory for output SVG flamegraphs, which I recommend opening with a browser.
+
+- [ ] Shape::intersect computes the inverse CTM every time, so we spend a lot of time doing this
+
+  - Mitigation: Cache the inverse CTM on Shape construction
+
+- [ ] Time spent in uv_lookup is dominated by HashMap::get
+
+  - Mitigation: Consider loading texture images into the Texture objects during parsing into TreeScene (specifically, in parse_texture_map),
+    and have Materials have an Option<Rc<Texture>>. A HashMap<PathBuf, Rc<Texture>> would exist during parsing to allow lookup of
+    a texture by path to see if it had been loaded already (if so, clone the Rc, if not, load and create a new Rc)
+  - NOTE: Only about 25% of lights::phong is spent in uv_lookup - the rest is spent in Light::is_visible
