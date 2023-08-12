@@ -133,14 +133,13 @@ impl RayTracer {
 
         let mut output_image = RgbImage::new(self.config.width, self.config.height);
         let output_width = output_image.width();
-        let output_height = output_image.height();
 
         // Renders a single pixel at the given 1-dimensional index in the image,
         // returning its row/column position as well as the computed pixel color.
         let render_pixel = |pixel_index| {
             // Convert pixel index to 2D discrete image coordinates
             let row = pixel_index / output_width;
-            let col = pixel_index % output_height;
+            let col = pixel_index % output_width;
 
             // Convert the image coordinates to continuous view plane coordinates
             let y = (self.config.height - 1 - row) as f32 / self.config.height as f32 - 0.5;
@@ -166,7 +165,7 @@ impl RayTracer {
             (col, row, pixel_color)
         };
 
-        let all_pixel_indices = 0..output_image.width() * output_image.height();
+        let all_pixel_indices = 0..(output_image.width() * output_image.height());
 
         if self.config.enable_parallelism {
             let (sender, receiver) = channel();
