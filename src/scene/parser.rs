@@ -107,6 +107,12 @@ fn parse_camera(element: &Element) -> Result<Camera> {
                 camera.look = parse_vec3(child, ("x", "y", "z"))?.extend(1.0);
                 focus_found = true;
             }
+            unsupported_tagname @ ("aperture" | "focallength") => {
+                eprintln!(
+                    "Ignoring unsupported camera tagname: <{}>",
+                    unsupported_tagname
+                );
+            }
             other_name => bail!("Unknown camera tagname: <{}>", other_name),
         }
     }
