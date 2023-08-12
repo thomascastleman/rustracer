@@ -21,7 +21,7 @@ CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph -o ./profiling/take_forever_re
 
 See `profiling/` directory for output SVG flamegraphs, which I recommend opening with a browser.
 
-- [ ] Shape::intersect computes the inverse CTM every time, so we spend a lot of time doing this
+- [x] Shape::intersect computes the inverse CTM every time, so we spend a lot of time doing this
 
   - Mitigation: Cache the inverse CTM on Shape construction
 

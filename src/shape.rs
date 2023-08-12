@@ -16,6 +16,8 @@ pub struct Shape {
     pub material: Material,
     /// The cumulative transformation matrix for this shape.
     ctm: glm::Mat4,
+    /// Inverse of the CTM, cached here for performance reasons.
+    inverse_ctm: glm::Mat4,
 }
 
 impl Shape {
@@ -33,18 +35,21 @@ impl Shape {
         });
 
         // TODO: Instead of cloning the material here, we could have it be multiply-owned (Rc)
+        let material = parsed_shape.material.clone();
+        let inverse_ctm = glm::inverse(&ctm);
+
         Self {
             primitive,
-            material: parsed_shape.material.clone(),
+            material,
             ctm,
+            inverse_ctm,
         }
     }
 
     /// Determine if the given ray intersects with this shape, returning information about
     /// where the intersection occurs and what kind of material properties are implicated if so.
     pub fn intersect(&self, ray: &Ray) -> Option<Intersection> {
-        let inverse_ctm = glm::inverse(&self.ctm);
-        let object_space_ray = ray.to_object_space(&inverse_ctm);
+        let object_space_ray = ray.to_object_space(&self.inverse_ctm);
 
         let mut component_intersection = self.primitive.intersect(&object_space_ray)?;
 
