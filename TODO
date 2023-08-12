@@ -1,7 +1,8 @@
 - [x] Texture mapping
-- [ ] Super sampling
+- [x] Super sampling
 - [x] Parallelization
 - [ ] Benchmarking
+- [ ] Testing framework that does an image diff with benchmark images from the scenefiles repository
 
 # Profiling Notes
 

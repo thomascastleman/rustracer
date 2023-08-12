@@ -45,6 +45,9 @@ pub struct Config {
     /// Enable parallel processing of pixels
     #[structopt(long)]
     enable_parallelism: bool,
+    /// Number of samples per pixel
+    #[structopt(default_value = "1", long)]
+    samples: u8,
 }
 
 /// Parses the CLI arguments, invokes the raytracer, and saves the output image, propagating errors.
