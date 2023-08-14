@@ -117,16 +117,9 @@ impl RayTracer {
     }
 
     /// Produces an image by rendering the raytracer's scene.
-    pub fn render(&self) -> RgbImage {
-        let progress_bar =
-            indicatif::ProgressBar::new((self.config.width * self.config.height) as u64);
-        progress_bar.set_style(
-            indicatif::ProgressStyle::with_template(
-                "[{elapsed_precise}] {bar:40.cyan/blue} {percent}% {pos:>7} / {len:7} pixels",
-            )
-            .unwrap(),
-        );
-
+    ///
+    /// The `pixel_finished` parameter is a callback that is invoked every time a pixel completes rendering.
+    pub fn render<F: Fn() + Sync>(&self, pixel_finished: F) -> RgbImage {
         let viewplane_height = 2.0 * (self.scene.camera.height_angle / 2.0).tan(); // depth = 1
         let viewplane_width =
             viewplane_height * (self.config.width as f32 / self.config.height as f32);
@@ -179,8 +172,7 @@ impl RayTracer {
             let average_intensity = accumulated_intensity / self.config.samples as f32;
             let pixel_color = lights::to_rgb(&average_intensity);
 
-            // Increment the progress bar
-            progress_bar.inc(1);
+            pixel_finished();
 
             (col, row, pixel_color)
         };
@@ -206,8 +198,6 @@ impl RayTracer {
                 output_image.put_pixel(x, y, color);
             }
         };
-
-        progress_bar.finish();
 
         output_image
     }

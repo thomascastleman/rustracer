@@ -13,3 +13,10 @@ rand = "0.8.5"
 rayon = "1.7.0"
 structopt = "0.3.26"
 xmltree = "0.10.3"
+
+[dev-dependencies]
+paste = "1.0.14"
+
+# Enable release build in cargo test
+[profile.test]
+opt-level = 3

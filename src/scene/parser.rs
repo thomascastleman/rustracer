@@ -3,8 +3,8 @@
 use super::{GlobalLightingCoefficients, Material, Node, ParsedShape, PrimitiveType, Texture};
 use crate::lights::Light;
 use crate::scene::{Camera, Transformation, TreeScene};
-use anyhow::Result;
 use anyhow::{anyhow, bail};
+use anyhow::{Context, Result};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs::File;
@@ -416,7 +416,11 @@ impl TreeScene {
     /// Parses a `Scene` from the given scenefile path and a path that all
     /// texture images are relative to.
     pub fn parse(scenefile: &Path, textures: &Path) -> Result<Self> {
-        let root = Element::parse(File::open(scenefile)?)?;
+        let root = Element::parse(
+            File::open(scenefile)
+                .with_context(|| format!("Failed to open scenefile: {}", scenefile.display()))?,
+        )
+        .with_context(|| format!("Failed to parse scenefile as XML: {}", scenefile.display()))?;
 
         if root.name != "scenefile" {
             bail!("Missing <scenefile> tag");

@@ -2,7 +2,12 @@
 - [x] Super sampling
 - [x] Parallelization
 - [ ] Benchmarking
-- [ ] Testing framework that does an image diff with benchmark images from the scenefiles repository
+- [x] Testing framework that does an image diff with benchmark images from the scenefiles repository
+- [ ] Use anyhow to add context to propagated errors
+
+# Bugs
+
+- [ ] Texture mapping bug: test with test_feature/texture_cube
 
 # Profiling Notes
 
