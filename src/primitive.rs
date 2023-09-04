@@ -110,7 +110,7 @@ impl Plane {
 
     fn normal(&self) -> glm::Vec4 {
         let mut normal = glm::vec4(0.0, 0.0, 0.0, 0.0);
-        normal[self.normal_axis as usize] = 1.0;
+        normal[self.normal_axis as usize] = if self.elevation > 0.0 { 1.0 } else { -1.0 };
         normal
     }
 
