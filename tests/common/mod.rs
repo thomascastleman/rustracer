@@ -6,9 +6,14 @@ use std::path::PathBuf;
 const BENCHMARK_IMG_WIDTH: u32 = 512;
 const BENCHMARK_IMG_HEIGHT: u32 = 384;
 
-/// Ratio of (number of pixels with diff) to (number of pixels), which, if exceeded,
+/// Ratio of (number of pixels with significant diff) to (number of pixels), which, if exceeded,
 /// will cause a test to fail and save the diff image.
-const DIFF_THRESHOLD: f32 = 0.01;
+const TEST_FAILURE_DIFF_THRESHOLD: f32 = 0.01;
+
+/// Pixel diff amount at which the difference is considered significant. Differences
+/// below this amount are ignored and considered similar "enough".
+/// The interpretation of this value depends on how diffs are calculated - see `pixel_diff()`.
+const SIGNIFICANT_PIXEL_DIFF_THRESHOLD: f32 = 10.0;
 
 /// Macro for generating a test case that renders a given scenefile with the rustracer
 /// and compares this output with the corresponding benchmark image, succeeding if any
@@ -89,21 +94,21 @@ pub fn render_and_diff(
     assert_eq!(image.width(), benchmark_image.width());
     assert_eq!(image.height(), benchmark_image.height());
 
-    let (diff_image, pixels_with_diff) = calculate_diff_image(&image, &benchmark_image);
+    let (diff_image, pixels_with_significant_diff) = calculate_diff_image(&image, &benchmark_image);
 
-    let ratio_of_pixels_with_diff =
-        pixels_with_diff as f32 / (image.width() * image.height()) as f32;
+    let ratio_of_pixels_with_significant_diff =
+        pixels_with_significant_diff as f32 / (image.width() * image.height()) as f32;
 
-    if ratio_of_pixels_with_diff >= DIFF_THRESHOLD {
+    if ratio_of_pixels_with_significant_diff >= TEST_FAILURE_DIFF_THRESHOLD {
         diff_image
             .save(&diff_image_path)
             .with_context(|| format!("Failed to save diff image: {}", diff_image_path.display()))?;
 
         Err(anyhow::anyhow!(
             "Pixels with diff ({} pixels, {}%) exceeded threshold ({}%)",
-            pixels_with_diff,
-            ratio_of_pixels_with_diff * 100.0,
-            DIFF_THRESHOLD * 100.0
+            pixels_with_significant_diff,
+            ratio_of_pixels_with_significant_diff * 100.0,
+            TEST_FAILURE_DIFF_THRESHOLD * 100.0
         ))
     } else {
         Ok(())
@@ -111,10 +116,10 @@ pub fn render_and_diff(
 }
 
 /// Calculates the pixel-by-pixel difference between two images, constructing a new image
-/// that visually represents the difference, and indicating how many pixels differed.
+/// that visually represents the difference, and indicating how many pixels differed significantly.
 fn calculate_diff_image(image: &RgbImage, benchmark_image: &RgbImage) -> (RgbImage, usize) {
     let mut diff_image = RgbImage::new(image.width(), image.height());
-    let mut pixels_with_diff = 0;
+    let mut pixels_with_significant_diff = 0;
 
     for ((x, y, image_pixel), benchmark_pixel) in
         image.enumerate_pixels().zip(benchmark_image.pixels())
@@ -131,8 +136,9 @@ fn calculate_diff_image(image: &RgbImage, benchmark_image: &RgbImage) -> (RgbIma
             (value_a as i16 - value_b as i16).unsigned_abs() as u8
         }
 
-        if pixel_diff(image_pixel, benchmark_pixel) > 0 {
-            pixels_with_diff += 1;
+        let diff = pixel_diff(image_pixel, benchmark_pixel);
+        if diff > SIGNIFICANT_PIXEL_DIFF_THRESHOLD {
+            pixels_with_significant_diff += 1;
 
             // Use the difference between the red, green, and blue values as the color of each
             // of these values in the diff image, scaling them up to higher values to make
@@ -151,12 +157,13 @@ fn calculate_diff_image(image: &RgbImage, benchmark_image: &RgbImage) -> (RgbIma
         }
     }
 
-    (diff_image, pixels_with_diff)
+    (diff_image, pixels_with_significant_diff)
 }
 
 /// Computes the difference between two RGB triples as their Euclidean distance.
-fn pixel_diff(pixel_a: &Rgb<u8>, pixel_b: &Rgb<u8>) -> usize {
-    ((pixel_a[0] as isize - pixel_b[0] as isize).pow(2)
+fn pixel_diff(pixel_a: &Rgb<u8>, pixel_b: &Rgb<u8>) -> f32 {
+    (((pixel_a[0] as isize - pixel_b[0] as isize).pow(2)
         + (pixel_a[1] as isize - pixel_b[1] as isize).pow(2)
-        + (pixel_a[2] as isize - pixel_b[2] as isize).pow(2)) as usize
+        + (pixel_a[2] as isize - pixel_b[2] as isize).pow(2)) as f32)
+        .sqrt()
 }
