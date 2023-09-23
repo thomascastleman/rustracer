@@ -5,6 +5,7 @@ use crate::lights::Light;
 use crate::scene::{Camera, Transformation, TreeScene};
 use anyhow::{anyhow, bail};
 use anyhow::{Context, Result};
+use num_traits::Zero;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs::File;
@@ -39,6 +40,18 @@ fn parse_vec3(element: &Element, (x, y, z): (&str, &str, &str)) -> Result<glm::V
         parse_attribute(element, x)?,
         parse_attribute(element, y)?,
         parse_attribute(element, z)?,
+    ))
+}
+
+fn parse_vec4(
+    element: &Element,
+    (x, y, z, w): (&str, &str, &str, &str),
+) -> Result<glm::Vector4<f32>> {
+    Ok(glm::vec4(
+        parse_attribute(element, x)?,
+        parse_attribute(element, y)?,
+        parse_attribute(element, z)?,
+        parse_attribute(element, w)?,
     ))
 }
 
@@ -318,6 +331,27 @@ fn parse_transblock(
                 node.borrow_mut()
                     .transformations
                     .push(Transformation::Scale(parse_vec3(child, ("x", "y", "z"))?));
+            }
+            "matrix" => {
+                let mut matrix = glm::Mat4::zero();
+
+                for (row_index, row) in child_elements(child).enumerate() {
+                    match row.name.as_str() {
+                        "row0" | "row1" | "row2" | "row3" => {
+                            let row_vector = parse_vec4(row, ("v1", "v2", "v3", "v4"))?;
+
+                            for (col_index, &value) in row_vector.as_array().iter().enumerate() {
+                                // NOTE: glm::Mat4 uses .as_array() for indexing, so it indexes column-first
+                                matrix[col_index][row_index] = value;
+                            }
+                        }
+                        other_name => bail!("Cannot have tag <{}> in <matrix>", other_name),
+                    }
+                }
+
+                node.borrow_mut()
+                    .transformations
+                    .push(Transformation::Matrix(matrix));
             }
             "object" => match parse_attribute::<String>(child, "type")?.as_str() {
                 "master" => {

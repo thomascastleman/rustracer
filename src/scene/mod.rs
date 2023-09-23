@@ -108,6 +108,7 @@ enum Transformation {
     Translate(glm::Vector3<f32>),
     Scale(glm::Vector3<f32>),
     Rotate(glm::Vector3<f32>, f32),
+    Matrix(glm::Mat4),
 }
 
 impl Transformation {
@@ -116,6 +117,7 @@ impl Transformation {
             Transformation::Translate(translation) => glm::ext::translate(ctm, *translation),
             Transformation::Rotate(axis, angle) => glm::ext::rotate(ctm, *angle, *axis),
             Transformation::Scale(scale_factors) => glm::ext::scale(ctm, *scale_factors),
+            Transformation::Matrix(matrix) => *matrix,
         }
     }
 }
