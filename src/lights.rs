@@ -186,7 +186,10 @@ impl Light {
     /// can be cast from the light to the point without intersecting any objects.
     fn is_visible(&self, point: &glm::Vec4, shapes: &[Shape]) -> bool {
         let to_point = self.direction_to_point(point);
-        let point_to_light_ray = Ray::new(*point + (-to_point * SELF_INTERSECT_OFFSET), -to_point);
+        let point_to_light_ray = Ray::new(
+            *point + (glm::normalize(-to_point) * SELF_INTERSECT_OFFSET),
+            glm::normalize(-to_point),
+        );
         let distance = self.distance_to_point(point);
 
         // The point is visible to the light if a ray from the point to the light
