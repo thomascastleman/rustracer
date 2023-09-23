@@ -18,13 +18,15 @@ The binary can then be found at `target/release/rustracer`. Use the `--help` fla
 
 ### Example usage
 
-The following command will run a release binary to render a 1024 by 768 image, using shadows, reflections, texture mapping, parallelism, and stochastic supersampling (change the paths to fit your system):
+Run from the root of the repository, the following command will run a release binary
+to render a 1024 by 768 image, using shadows, reflections, texture mapping, parallelism,
+and stochastic supersampling:
 
 ```
 cargo run --release -- --width 1024 --height 768 \
-    --output ./output/take_forever_recursiveSpheres3.png \
-    --textures ~/Desktop/courses/1230/scenefiles \
-    --scene ~/Desktop/courses/1230/scenefiles/test_take_forever/recursiveSpheres3.xml \
+    --output ./output/test_efficiency_recursiveSpheres3.png \
+    --textures ./tests/textures \
+    --scene ./tests/scenefiles/test_efficiency/recursiveSpheres3.xml \
     --enable-shadows \
     --enable-reflections \
     --enable-texture \
@@ -46,4 +48,6 @@ For examples of images produced by this program, see the [`output` directory](ou
 
 ## Scenefiles
 
-The scenefiles are expected to be in the XML format used by CS1230. [Several examples can be found in this repository](https://github.com/BrownCSCI1230/scenefiles).
+The scenefiles are expected to be in the XML format used by CS1230. Several examples can be found in
+the `tests/scenefiles` directory of this repository, or in [this repository](https://github.com/BrownCSCI1230/scenefiles),
+where they were adapted from.
