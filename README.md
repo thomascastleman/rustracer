@@ -34,6 +34,25 @@ cargo run --release -- --width 1024 --height 768 \
     --samples 20
 ```
 
+## Tests
+
+To run the tests (which will compare rendered output with benchmark images and fail if
+significant difference is detected), run:
+
+```
+tests/clear_diffs.sh && cargo test
+```
+
+The `clear_diffs.sh` script ensures that there are no left-over diff images from a previous test run.
+
+If you add or remove a test scenefile/benchmark, make sure to run
+
+```
+tests/generate_test_cases.sh >tests/test_against_benchmarks.rs
+```
+
+to update the auto-generated list of macro invocations that generate the test functions for each scenefile/image.
+
 ## Documentation
 
 To build the documentation and open it in your browser, run

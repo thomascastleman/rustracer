@@ -8,4 +8,5 @@ if [ ! -d "$DIFF_OUTPUT_DIRECTORY" ]; then
     exit 1
 fi
 
+echo "Clearing all diff images"
 find "$DIFF_OUTPUT_DIRECTORY" -type f -name "*.png" -delete
