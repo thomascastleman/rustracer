@@ -7,7 +7,11 @@
 
 # Bugs
 
-- [ ] Texture mapping bug: test with test_feature/texture_cube
+- [ ] Unexpected shadows in test_intersect/phong_diffuse and phong_total
+  - Cylinder is causing a shadow on the cube unexpectedly from the far right point light
+  - Cube should be further negative z (-8) than the cylinder (-5)
+  - Offending point light is far right, down a little, and forward z (1)
+  - Update: This shadow is correct, and the benchmark images in test_intersect/ were rendered without shadows
 
 # Profiling Notes
 
