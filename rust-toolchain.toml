@@ -1,0 +1,6 @@
+# The next stable release (1.76.0) broke rustc-serialize, which we transitively 
+# depend on via glm, which is not actively maintained. As a workaround, pin the 
+# toolchain to 1.75.0 which is the most recent toolchain under which the 
+# rustracer still builds.
+[toolchain]
+channel = "1.75.0"
